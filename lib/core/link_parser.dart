@@ -51,8 +51,25 @@ String? tryDecodeBase64(String input) {
 Map<String, dynamic>? _tryParseClashConfig(String text) {
   try {
     final doc = yamlToPlain(loadYaml(text));
+    // A valid Clash/Mihomo profile may define only groups/rules/providers
+    // (for example when every outbound is supplied by proxy-providers). Do not
+    // require an inline `proxies` list to recognize a complete profile.
+    const configKeys = {
+      'proxies',
+      'proxy-providers',
+      'proxy-groups',
+      'rule-providers',
+      'rules',
+      'mixed-port',
+      'port',
+      'socks-port',
+      'tun',
+      'dns',
+      'listeners',
+      'external-controller',
+    };
     if (doc is Map<String, dynamic> &&
-        (doc.containsKey('proxies') || doc.containsKey('proxy-providers'))) {
+        doc.keys.any(configKeys.contains)) {
       return doc;
     }
   } catch (_) {}
