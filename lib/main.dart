@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:tray_manager/tray_manager.dart' as tray;
 import 'package:window_manager/window_manager.dart';
 
 import 'brand.dart';
 import 'state/app_state.dart';
+import 'ui/motion.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 
@@ -27,25 +30,128 @@ Future<void> main() async {
       titleBarStyle: TitleBarStyle.hidden,
       backgroundColor: Colors.transparent,
     );
+    final closeHandler = _CloseHandler(state);
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.show();
       await windowManager.focus();
     });
     await windowManager.setPreventClose(true);
-    windowManager.addListener(_CloseHandler(state));
+    if (Platform.isWindows) {
+      await closeHandler.initializeTray();
+    }
+    windowManager.addListener(closeHandler);
   }
 
   runApp(BrewApp(state: state));
 }
 
-class _CloseHandler with WindowListener {
+class _CloseHandler with WindowListener, tray.TrayListener {
   _CloseHandler(this.state);
+
   final AppState state;
+  bool _exiting = false;
+  bool _trayReady = false;
+
+  Future<void> initializeTray() async {
+    final executableDirectory = File(Platform.resolvedExecutable).parent.path;
+    final candidates = <String>[
+      p.join(executableDirectory, 'brew_tray.ico'),
+      p.join(executableDirectory, 'resources', 'app_icon.ico'),
+      p.join(Directory.current.path, 'windows', 'runner', 'resources', 'app_icon.ico'),
+    ];
+    String? iconPath;
+    for (final path in candidates) {
+      if (File(path).existsSync()) {
+        iconPath = path;
+        break;
+      }
+    }
+    if (iconPath == null) return;
+
+    await tray.trayManager.setIcon(iconPath);
+    await tray.trayManager.setToolTip('brew — VPN');
+    await tray.trayManager.setContextMenu(
+      tray.Menu(
+        items: [
+          tray.MenuItem(key: 'show_window', label: 'Открыть brew'),
+          tray.MenuItem.separator(),
+          tray.MenuItem(key: 'exit_app', label: 'Полностью выйти'),
+        ],
+      ),
+    );
+    tray.trayManager.addListener(this);
+    _trayReady = true;
+  }
+
+  Future<void> _showWindow() async {
+    await windowManager.show();
+    await windowManager.restore();
+    await windowManager.focus();
+    Motion.setSuspended(false);
+  }
+
+  Future<void> _exitApplication() async {
+    if (_exiting) return;
+    _exiting = true;
+    if (_trayReady) {
+      tray.trayManager.removeListener(this);
+      await tray.trayManager.destroy();
+      _trayReady = false;
+    }
+    Motion.setSuspended(false);
+    await state.shutdown();
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
+  }
 
   @override
   Future<void> onWindowClose() async {
-    await state.shutdown();
-    await windowManager.destroy();
+    if (_exiting) return;
+    if (Platform.isWindows && _trayReady) {
+      // Keep the VPN core and connection alive; the tray Exit item performs a
+      // full shutdown. Hiding also suspends expensive background UI animation.
+      Motion.setSuspended(true);
+      await windowManager.hide();
+      return;
+    }
+    await _exitApplication();
+  }
+
+  @override
+  void onWindowMinimize() {
+    Motion.setSuspended(true);
+  }
+
+  @override
+  void onWindowRestore() {
+    Motion.setSuspended(false);
+  }
+
+  @override
+  void onWindowFocus() {
+    Motion.setSuspended(false);
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    _showWindow();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    tray.trayManager.popUpContextMenu();
+  }
+
+  @override
+  void onTrayMenuItemClick(tray.MenuItem menuItem) {
+    switch (menuItem.key) {
+      case 'show_window':
+        _showWindow();
+        break;
+      case 'exit_app':
+        _exitApplication();
+        break;
+    }
   }
 }
 
@@ -74,7 +180,7 @@ class BrewApp extends StatelessWidget {
               themeMode: s.themeMode,
               theme: buildTheme(scheme(Brightness.light)),
               darkTheme: buildTheme(scheme(Brightness.dark)),
-              themeAnimationDuration: const Duration(milliseconds: 500),
+              themeAnimationDuration: const Duration(milliseconds: 200),
               themeAnimationCurve: Curves.easeInOutCubic,
               home: const Shell(),
             );

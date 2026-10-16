@@ -47,6 +47,7 @@ class _TrafficChartState extends State<TrafficChart>
   }
 
   void _onSample() {
+    if (Motion.suspended) return;
     if (_off) {
       _s.progress = 1;
       _s.tick();
@@ -59,6 +60,10 @@ class _TrafficChartState extends State<TrafficChart>
 
   /// Animates the scroll after each sample, then idles until the next one.
   void _onTick(Duration elapsed) {
+    if (Motion.suspended) {
+      _ticker.stop();
+      return;
+    }
     final dt = ((elapsed - _last).inMicroseconds / 1e6).clamp(0.0, 0.05);
     _last = elapsed;
     final since =

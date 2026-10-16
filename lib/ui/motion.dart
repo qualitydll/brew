@@ -10,13 +10,21 @@ class Motion {
       .map((e) => e.trim())
       .toSet();
 
+  static bool suspended = false;
+
   static bool disabled(String name) =>
       _off.contains('all') || _off.contains(name);
+
+  /// Stop periodic UI work while the desktop window is hidden or minimized.
+  static void setSuspended(bool value) {
+    if (suspended == value) return;
+    suspended = value;
+    Ambient.instance.setSuspended(value);
+  }
 }
 
 /// Shared low-rate clock for idle "ambient" motion (background drift, idle orb).
-/// Runs at [fps] while focused, slows down when the window loses focus and
-/// stops entirely when minimized or when nobody listens.
+/// Stops while hidden/minimized and when nobody listens.
 class Ambient extends ChangeNotifier with WidgetsBindingObserver {
   Ambient._() {
     WidgetsBinding.instance.addObserver(this);
@@ -33,6 +41,7 @@ class Ambient extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _timer;
   int _rate = 0;
   int _users = 0;
+  bool _suspended = false;
 
   /// Seconds since previous tick (clamped).
   double dt = 0;
@@ -43,7 +52,13 @@ class Ambient extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void release() {
-    _users--;
+    if (_users > 0) _users--;
+    _sync();
+  }
+
+  void setSuspended(bool value) {
+    if (_suspended == value) return;
+    _suspended = value;
     _sync();
   }
 
@@ -54,7 +69,7 @@ class Ambient extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _sync() {
-    final rate = _users <= 0
+    final rate = _suspended || _users <= 0
         ? 0
         : switch (_life) {
             AppLifecycleState.resumed => fps,

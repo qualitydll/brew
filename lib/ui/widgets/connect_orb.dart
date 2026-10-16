@@ -72,7 +72,7 @@ class _ConnectOrbState extends State<ConnectOrb>
 
   /// Switch to full frame rate until the shape settles.
   void _kick() {
-    if (_off || _ticker.isActive) return;
+    if (_off || Motion.suspended || _ticker.isActive) return;
     _last = Duration.zero;
     _ticker.start();
   }
@@ -82,6 +82,10 @@ class _ConnectOrbState extends State<ConnectOrb>
   }
 
   void _onTick(Duration elapsed) {
+    if (Motion.suspended) {
+      _ticker.stop();
+      return;
+    }
     final dt = ((elapsed - _last).inMicroseconds / 1e6).clamp(0.0, 0.05);
     _last = elapsed;
     if (_step(dt)) _ticker.stop();

@@ -57,6 +57,11 @@ jobs:
         if ($LASTEXITCODE -ne 0) {
           throw "Bundled Mihomo core failed to start."
         }
+        $release = "build/windows/x64/runner/Release"
+        Copy-Item "windows/runner/resources/app_icon.ico" (Join-Path $release "brew_tray.ico") -Force
+        if (!(Test-Path (Join-Path $release "brew_tray.ico"))) {
+          throw "Brew tray icon was not bundled."
+        }
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
