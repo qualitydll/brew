@@ -117,7 +117,7 @@ def main() -> None:
     foreground_dir = ANDROID_RES / "drawable"
     foreground_dir.mkdir(parents=True, exist_ok=True)
     fit(source, 432, 0.68).save(
-        foreground_dir / "ic_brew_foreground.png", format="PNG", optimize=True
+        foreground_dir / "ic_brew_foreground_image.png", format="PNG", optimize=True
     )
 
     for folder, size in ANDROID_SIZES.items():
