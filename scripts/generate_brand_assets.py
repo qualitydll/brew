@@ -76,7 +76,10 @@ def best_source(images: list[tuple], fallback: Image.Image) -> Image.Image:
         return fallback.convert("RGBA")
     square = [item for item in pngs if item[3][0] == item[3][1]]
     candidates = square or pngs
-    selected = max(candidates, key=lambda item: _score(item[0], item[3]))
+    selected = max(
+        candidates,
+        key=lambda item: (item[3][0] * item[3][1], _score(item[0], item[3])[1]),
+    )
     print(f"Primary app artwork: {selected[0]} ({selected[3][0]}x{selected[3][1]})")
     return selected[2]
 
