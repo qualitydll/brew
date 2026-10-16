@@ -1,0 +1,209 @@
+name: Build Windows EXE and Android APK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python for brand assets
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Generate Brew brand assets
+      shell: pwsh
+      run: |
+        python -m pip install Pillow
+        python scripts/generate_brand_assets.py
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Build Windows
+      run: flutter build windows --release
+
+    - name: Bundle pinned Mihomo core
+      shell: pwsh
+      run: |
+        $version = "v1.19.32"
+        $archive = Join-Path $env:RUNNER_TEMP "mihomo-windows-amd64-$version.zip"
+        $url = "https://github.com/MetaCubeX/mihomo/releases/download/$version/mihomo-windows-amd64-$version.zip"
+        Invoke-WebRequest -Uri $url -OutFile $archive
+        $extract = Join-Path $env:RUNNER_TEMP "mihomo-core"
+        Expand-Archive -Path $archive -DestinationPath $extract -Force
+        $binary = Get-ChildItem -Path $extract -Filter "mihomo*.exe" -File -Recurse | Select-Object -First 1
+        if ($null -eq $binary) {
+          throw "Pinned Mihomo archive did not contain mihomo.exe."
+        }
+        $target = "build/windows/x64/runner/Release/core"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item $binary.FullName (Join-Path $target "mihomo.exe") -Force
+        & (Join-Path $target "mihomo.exe") -v
+        if ($LASTEXITCODE -ne 0) {
+          throw "Bundled Mihomo core failed to start."
+        }
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-release
+        path: build/windows/x64/runner/Release/
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python for brand assets
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Generate Brew brand assets
+      shell: bash
+      run: |
+        python -m pip install Pillow
+        python scripts/generate_brand_assets.py
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.0.13004108'
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Analyze and test
+      run: |
+        flutter analyze
+        flutter test
+
+    - name: Build Android APK (ARM64 only)
+      run: flutter build apk --release --target-platform android-arm64
+
+    - name: Verify APK package, VPN service, native libraries, and load wiring
+      shell: bash
+      run: |
+        set -euo pipefail
+        apk=build/app/outputs/flutter-apk/app-release.apk
+        aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+        badging="$("$aapt" dump badging "$apk")"
+        if ! grep -Fq "package: name='dev.brew.brew'" <<<"$badging"; then
+          echo "::error::APK package is not dev.brew.brew."
+          exit 1
+        fi
+
+        manifest="$("$aapt" dump xmltree "$apk" AndroidManifest.xml)"
+        for required in \
+          "MihomoVpnService" \
+          "android.permission.BIND_VPN_SERVICE" \
+          "android.net.VpnService"; do
+          if ! grep -Fq "$required" <<<"$manifest"; then
+            echo "::error::APK manifest is missing $required."
+            exit 1
+          fi
+        done
+
+        for library in libclash.so libmihomo-jni.so; do
+          if ! unzip -Z1 "$apk" | grep -qx "lib/arm64-v8a/$library"; then
+            echo "::error::ARM64 APK is missing lib/arm64-v8a/$library."
+            exit 1
+          fi
+        done
+        if unzip -Z1 "$apk" | grep -Eq '^lib/(armeabi-v7a|x86_64)/'; then
+          echo "::error::APK unexpectedly contains non-ARM64 native libraries."
+          exit 1
+        fi
+        if ! unzip -Z1 "$apk" | grep -qx \
+          'assets/flutter_assets/assets/images/brew_logo.png'; then
+          echo "::error::APK is missing the supplied Brew logo asset."
+          exit 1
+        fi
+
+        grep -Fq 'useLegacyPackaging = true' android/app/build.gradle.kts
+        grep -Fq 'abiFilters += listOf("arm64-v8a")' android/app/build.gradle.kts
+        grep -Fq 'implementation(files(mihomoAndroidAar).builtBy(downloadMihomoAndroid))' android/app/build.gradle.kts
+        if grep -Fq 'libbox.aar' android/app/build.gradle.kts; then
+          echo "::error::sing-box libbox must not be included in this Mihomo-only build."
+          exit 1
+        fi
+        grep -Fq 'applicationInfo.nativeLibraryDir' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
+        grep -Fq 'Clash.load(nativeLibraryDir.absolutePath)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
+        grep -Fq 'Clash.assertReady()' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
+        grep -Fq '.put("home-dir", homeDir.absolutePath)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq '.put("profile", configFile.absolutePath)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'File(configPath).canonicalFile' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'CONFIG_FILE_NAME = "config.yaml"' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'prepareMihomoConfigFile(dataDir)' lib/state/app_state.dart
+        grep -Fq "p.join(dataDirectory, 'home')" \
+          lib/core/mihomo_config_path.dart
+        grep -Fq 'await file.parent.create(recursive: true)' \
+          lib/core/mihomo_config_path.dart
+        grep -Fq 'prepareMihomoConfigFile' \
+          test/core/mihomo_config_path_test.dart
+        grep -Fq 'MihomoRuntime.load(this)' \
+          android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
+        grep -Fq 'MihomoRuntime.load(this)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'EXTRA_SESSION_ID, sessionId' \
+          android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
+        grep -Fq 'EXTRA_SESSION_ID' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'activeSessionId == sessionId' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'if (activeSessionId == sessionId)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'latestStartId == startId' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'startTimeout = const Duration(seconds: 40)' \
+          lib/core/android_vpn.dart
+        grep -Fq 'VPN cleanup failed' lib/core/android_vpn.dart
+        grep -Fq 'waitForMihomoApi(api.version)' lib/state/app_state.dart
+        test -f test/core/android_vpn_test.dart
+        test -f test/core/mihomo_api_test.dart
+        grep -Fq 'await _waitForApi(api)' lib/state/app_state.dart
+
+    - name: Report APK size
+      shell: bash
+      run: du -h build/app/outputs/flutter-apk/app-release.apk
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-release-arm64
+        path: build/app/outputs/flutter-apk/app-release.apk
