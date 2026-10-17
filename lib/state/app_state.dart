@@ -680,7 +680,9 @@ class AppState extends ChangeNotifier {
     if (proxies.isEmpty) return;
     if (!Platform.isWindows) throw StateError('HyL sidecar currently supports Windows only.');
     if (corePath == null) throw StateError('Mihomo core path is not available.');
-    final executable = File(p.join(p.dirname(corePath!), 'hyl-client.exe'));
+    final bundledClient = File(p.join(p.dirname(Platform.resolvedExecutable), 'core', 'hyl-client.exe'));
+    final localClient = File(p.join(p.dirname(corePath!), 'hyl-client.exe'));
+    final executable = await bundledClient.exists() ? bundledClient : localClient;
     if (!await executable.exists()) {
       throw StateError('Не найден hyl-client.exe рядом с Mihomo. Обновите Brew из свежей сборки.');
     }
