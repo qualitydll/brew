@@ -148,10 +148,17 @@ jobs:
           echo "::error::APK package is not dev.brew.brew."
           exit 1
         fi
+        if ! grep -Fq "application-label:'Brew'" <<<"$badging"; then
+          echo "::error::APK launcher label is not Brew."
+          exit 1
+        fi
 
         manifest="$("$aapt" dump xmltree "$apk" AndroidManifest.xml)"
         for required in \
           "MihomoVpnService" \
+          "BrewQuickSettingsTileService" \
+          "android.permission.BIND_QUICK_SETTINGS_TILE" \
+          "android.service.quicksettings.action.QS_TILE" \
           "android.permission.BIND_VPN_SERVICE" \
           "android.net.VpnService"; do
           if ! grep -Fq "$required" <<<"$manifest"; then
@@ -226,12 +233,16 @@ jobs:
         test -f test/core/mihomo_api_test.dart
         grep -Fq 'await _waitForApi(api)' lib/state/app_state.dart
 
+    - name: Rename APK to Brew.apk
+      shell: bash
+      run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Brew.apk
+
     - name: Report APK size
       shell: bash
-      run: du -h build/app/outputs/flutter-apk/app-release.apk
+      run: du -h build/app/outputs/flutter-apk/Brew.apk
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: android-release-arm64
-        path: build/app/outputs/flutter-apk/app-release.apk
+        name: Brew-android-arm64
+        path: build/app/outputs/flutter-apk/Brew.apk
