@@ -38,7 +38,9 @@ dependencies:
   http: ^1.6.0
   yaml: ^3.1.4
   path_provider: ^2.1.6
-  shared_preferences: ^2.5.6
+  shared_preferences: 2.5.5
+  # Pin the Android implementation to avoid a Pigeon API mismatch at runtime.
+  shared_preferences_android: 2.4.27
   window_manager: ^0.5.2
   path: ^1.9.1
   animations: ^3.0.0
