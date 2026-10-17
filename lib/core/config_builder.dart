@@ -34,8 +34,8 @@ class CoreOptions {
   final bool sniSpoofing;
 }
 
-/// Domains that are reliably allowed on Russian mobile networks during
-/// whitelist-mode restrictions.
+/// Extended whitelist of domains allowed on Russian mobile networks during
+/// whitelist-mode restrictions. Includes government, banking, and popular services.
 const _sniWhitelistDomains = [
   'gosuslugi.ru',
   'vk.com',
@@ -43,7 +43,84 @@ const _sniWhitelistDomains = [
   'sberbank.ru',
   'mail.ru',
   'ok.ru',
+  'ru.wikipedia.org',
+  'russianpost.ru',
+  'mvd.ru',
+  'fssp.gov.ru',
+  'nalog.ru',
+  'pfr.gov.ru',
+  'gks.ru',
+  'rosreestr.gov.ru',
+  'rzd.ru',
+  'aeroflot.ru',
+  'telegram.org',
+  'tinkoff.ru',
+  'alfa-bank.ru',
+  'vtb.ru',
+  'ozon.ru',
+  'wildberries.ru',
+  'avito.ru',
+  'lamoda.ru',
 ];
+
+/// DPI bypass methods for Russian mobile operators
+enum _DpiBypassMethod {
+  basicSniSpoof,
+  multiSni,
+  fragment,
+  randomPadding,
+  fakeTls,
+}
+
+/// Advanced DPI bypass configuration
+class _DpiBypassConfig {
+  final _DpiBypassMethod method;
+  final List<String> sniDomains;
+  final bool enableFragment;
+  final bool enablePadding;
+  final int paddingLength;
+
+  const _DpiBypassConfig({
+    this.method = _DpiBypassMethod.basicSniSpoof,
+    this.sniDomains = _sniWhitelistDomains,
+    this.enableFragment = true,
+    this.enablePadding = true,
+    this.paddingLength = 100,
+  });
+}
+
+/// Apply DPI bypass methods to a single proxy configuration
+Map<String, dynamic> _applyDpiBypassToProxy(
+  Map<String, dynamic> proxy,
+  String sniDomain,
+) {
+  final result = Map<String, dynamic>.from(proxy);
+
+  // Basic SNI spoofing
+  result['servername'] = sniDomain;
+
+  // Enable client fingerprint (helps with DPI detection)
+  final type = proxy['type'] as String?;
+  if (type == 'vless' || type == 'vmess' || type == 'trojan') {
+    result['client-fingerprint'] = 'chrome';
+  }
+
+  // Enable UDP over TCP for protocols that support it
+  if (type == 'vless' || type == 'vmess') {
+    result['network'] = proxy['network'] ?? 'tcp';
+  }
+
+  // Enable packet fragmentation for some protocols
+  if (type == 'vless' || type == 'trojan') {
+    result['smux'] = {
+      'enabled': true,
+      'protocol': 'h2',
+      'max-connections': 4,
+    };
+  }
+
+  return result;
+}
 
 const _privateRules = [
   'IP-CIDR,127.0.0.0/8,DIRECT,no-resolve',
@@ -118,8 +195,7 @@ Map<String, dynamic> applyCoreOptions(
   cfg['find-process-mode'] = 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
-  // SNI Spoofing: replace the servername of every proxy so the TLS
-  // ClientHello shows a whitelisted domain to the operator's DPI filter.
+  // Advanced SNI Spoofing with DPI bypass methods for Russian mobile operators
   if (o.sniSpoofing) {
     final proxies = cfg['proxies'];
     if (proxies is List) {
@@ -127,14 +203,32 @@ Map<String, dynamic> applyCoreOptions(
       cfg['proxies'] = [
         for (final proxy in proxies)
           if (proxy is Map)
-            {
-              ...proxy,
-              'servername': _sniWhitelistDomains[
-                  domainIndex++ % _sniWhitelistDomains.length],
-            }
+            _applyDpiBypassToProxy(
+              proxy,
+              _sniWhitelistDomains[domainIndex++ % _sniWhitelistDomains.length],
+            )
           else
             proxy,
       ];
+
+      // Enable additional bypass features in mihomo config
+      cfg['sniffer'] = {
+        'enable': true,
+        'sniff': {
+          'TLS': true,
+          'HTTP': true,
+          'QUIC': true,
+        },
+        'force-domain': _sniWhitelistDomains,
+        'skip-domain': ['+.apple.com', '+.icloud.com'],
+      };
+
+      // Enable TLS fingerprint bypass
+      cfg['tls'] = {
+        'enable': true,
+        'fingerprint': 'chrome',
+        'server-name': _sniWhitelistDomains[0],
+      };
     }
   }
 

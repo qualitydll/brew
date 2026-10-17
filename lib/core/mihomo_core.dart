@@ -25,9 +25,12 @@ class MihomoCore {
       if (customPath != null && customPath.isNotEmpty) customPath,
       if (Platform.environment['BREW_CORE'] != null)
         Platform.environment['BREW_CORE']!,
+      // Check core folder next to executable first (where we bundled mihomo.exe)
       p.join(p.dirname(Platform.resolvedExecutable), 'core', binaryName),
       p.join(p.dirname(Platform.resolvedExecutable), binaryName),
       p.join(dataDir, 'core', binaryName),
+      // Also check current directory for development
+      p.join(Directory.current.path, 'core', binaryName),
     ];
     for (final c in candidates) {
       if (await File(c).exists()) return c;
