@@ -2,14 +2,18 @@ name: Build Brew
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 35
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,7 +31,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           cache: true
 
       - name: Install dependencies
@@ -36,15 +40,51 @@ jobs:
       - name: Build Windows executable
         run: flutter build windows --release
 
-      - name: Upload Windows artifact
+      - name: Bundle and verify Mihomo core
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "v1.19.32"
+          $archive = Join-Path $env:RUNNER_TEMP "mihomo-windows-amd64-$version.zip"
+          $url = "https://github.com/MetaCubeX/mihomo/releases/download/$version/mihomo-windows-amd64-$version.zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $extract = Join-Path $env:RUNNER_TEMP "mihomo-core"
+          Expand-Archive -Path $archive -DestinationPath $extract -Force
+          $binary = Get-ChildItem -Path $extract -Filter "mihomo*.exe" -File -Recurse | Select-Object -First 1
+          if ($null -eq $binary) {
+            throw "Pinned Mihomo archive did not contain mihomo.exe."
+          }
+          $release = "build/windows/x64/runner/Release"
+          $target = Join-Path $release "core"
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          Copy-Item $binary.FullName (Join-Path $target "mihomo.exe") -Force
+          & (Join-Path $target "mihomo.exe") -v
+          if ($LASTEXITCODE -ne 0) {
+            throw "Bundled Mihomo core failed to start."
+          }
+          $trayIcon = "windows/runner/resources/app_icon.ico"
+          if (!(Test-Path $trayIcon)) {
+            throw "Required Brew tray icon was not found: $trayIcon"
+          }
+          Copy-Item $trayIcon (Join-Path $release "brew_tray.ico") -Force
+          if (!(Test-Path (Join-Path $release "brew_tray.ico"))) {
+            throw "Brew tray icon was not bundled."
+          }
+          if (!(Test-Path (Join-Path $release "brew.exe"))) {
+            throw "Windows build did not produce brew.exe."
+          }
+
+      - name: Upload Windows release
         uses: actions/upload-artifact@v4
         with:
           name: brew-windows
           path: build/windows/x64/runner/Release/
+          if-no-files-found: error
           retention-days: 30
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -59,27 +99,63 @@ jobs:
           python -m pip install --disable-pip-version-check Pillow
           python scripts/generate_brand_assets.py
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          cache: true
-
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.0.13004108'
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Android APK
-        run: flutter build apk --release
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test
 
-      - name: Upload Android artifact
+      - name: Build Android APK (ARM64)
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Verify APK package and native Mihomo runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          test -f "$apk"
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          badging="$("$aapt" dump badging "$apk")"
+          grep -Fq "package: name='dev.brew.brew'" <<<"$badging"
+
+          manifest="$("$aapt" dump xmltree "$apk" AndroidManifest.xml)"
+          for required in "MihomoVpnService" "android.permission.BIND_VPN_SERVICE" "android.net.VpnService"; do
+            grep -Fq "$required" <<<"$manifest"
+          done
+
+          for library in libclash.so libmihomo-jni.so; do
+            unzip -Z1 "$apk" | grep -qx "lib/arm64-v8a/$library"
+          done
+          if unzip -Z1 "$apk" | grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo "::error::APK unexpectedly contains unsupported native ABIs."
+            exit 1
+          fi
+          unzip -Z1 "$apk" | grep -qx 'assets/flutter_assets/assets/images/brew_logo.png'
+          echo "APK package, VPN service, logo, and ARM64 Mihomo libraries verified."
+
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: brew-android
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
           retention-days: 30
