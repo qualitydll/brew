@@ -160,6 +160,8 @@ Map<String, dynamic>? parseLink(String link) {
       return _parseAnyTls(link);
     case 'shadowquic':
       return _parseShadowQuic(link);
+    case 'hyl':
+      return _parseHyl(link);
   }
   return null;
 }
@@ -539,5 +541,25 @@ Map<String, dynamic>? _parseAnyTls(String link) {
   if (_truthy(q['insecure']) || _truthy(q['allowInsecure'])) {
     p['skip-cert-verify'] = true;
   }
+  return p;
+}
+
+
+/// Parses a HyL URI. Current HyL transport supports TCP over QUIC/SOCKS5 only.
+Map<String, dynamic>? _parseHyl(String link) {
+  final uri = Uri.parse(link);
+  if (uri.host.isEmpty || uri.userInfo.isEmpty) return null;
+  final q = uri.queryParameters;
+  final p = <String, dynamic>{
+    'name': _fragment(uri),
+    'type': 'hyl',
+    'server': uri.host,
+    'port': uri.hasPort ? uri.port : 443,
+    'password': Uri.decodeComponent(uri.userInfo),
+    'udp': false,
+  };
+  _putNonEmpty(p, 'sni', q['sni']);
+  _putNonEmpty(p, 'ca', q['ca']);
+  p['insecure'] = _truthy(q['insecure']);
   return p;
 }
