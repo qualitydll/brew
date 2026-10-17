@@ -82,4 +82,16 @@ class Settings {
   set activeProfileId(String? v) => v == null
       ? _prefs.remove('activeProfile')
       : _prefs.setString('activeProfile', v);
+
+  // Autostart settings
+  bool get autostart => _prefs.getBool('autostart') ?? false;
+  set autostart(bool v) => _prefs.setBool('autostart', v);
+
+  bool get autostartMinimized => _prefs.getBool('autostartMinimized') ?? false;
+  set autostartMinimized(bool v) => _prefs.setBool('autostartMinimized', v);
+
+  String? get autostartProtocol => _prefs.getString('autostartProtocol');
+  set autostartProtocol(String? v) => v == null
+      ? _prefs.remove('autostartProtocol')
+      : _prefs.setString('autostartProtocol', v);
 }

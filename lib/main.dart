@@ -31,13 +31,17 @@ Future<void> main() async {
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
+    // Fixed square window size (800x800) - non-resizable
+    const windowSize = Size(800, 800);
     const options = WindowOptions(
-      size: Size(1180, 760),
-      minimumSize: Size(920, 640),
+      size: windowSize,
+      minimumSize: windowSize,
+      maximumSize: windowSize,
       center: true,
       title: kAppName,
       titleBarStyle: TitleBarStyle.hidden,
       backgroundColor: Colors.transparent,
+      resizable: false,
     );
     final closeHandler = _CloseHandler(state);
     await windowManager.waitUntilReadyToShow(options, () async {
@@ -45,6 +49,7 @@ Future<void> main() async {
       await windowManager.focus();
     });
     await windowManager.setPreventClose(true);
+    await windowManager.setResizable(false);
     if (Platform.isWindows) {
       await closeHandler.initializeTray();
     }

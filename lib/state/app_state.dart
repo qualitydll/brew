@@ -908,6 +908,22 @@ class AppState extends ChangeNotifier {
     if (isConnected) await reconnect();
   }
 
+  Future<void> setAutostart(bool v) async {
+    settings.autostart = v;
+    notifyListeners();
+    // TODO: Implement Windows registry autostart
+  }
+
+  Future<void> setAutostartMinimized(bool v) async {
+    settings.autostartMinimized = v;
+    notifyListeners();
+  }
+
+  Future<void> setAutostartProtocol(String? v) async {
+    settings.autostartProtocol = v;
+    notifyListeners();
+  }
+
   Future<void> setMixedPort(int port) async {
     settings.mixedPort = port;
     notifyListeners();

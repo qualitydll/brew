@@ -136,6 +136,70 @@ class SettingsPage extends StatelessWidget {
             value: s.allowLan,
             onChanged: state.setAllowLan,
           ),
+        ],
+      ),
+      if (Platform.isWindows)
+        _Section(
+          icon: Icons.power_settings_new_rounded,
+          title: 'Автозапуск',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автозапуск при входе в систему'),
+              subtitle: const Text('Автоматически запускать приложение при входе в Windows'),
+              value: s.autostart,
+              onChanged: state.setAutostart,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Запускать свернутым'),
+              subtitle: const Text('При автозапуске приложение будет свернуто в трей'),
+              value: s.autostartMinimized,
+              onChanged: s.autostart ? state.setAutostartMinimized : null,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Протокол при автозапуске'),
+              subtitle: Text(
+                s.autostartProtocol == null
+                    ? 'Использовать последний выбранный'
+                    : s.autostartProtocol!,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: s.autostart
+                  ? () async {
+                      final protocols = ['rule', 'global', 'direct'];
+                      final selected = await showDialog<String>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Выберите протокол'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final p in protocols)
+                                ListTile(
+                                  title: Text(
+                                    p == 'rule'
+                                        ? 'Умный режим'
+                                        : p == 'global'
+                                            ? 'Весь трафик'
+                                            : 'Напрямую',
+                                  ),
+                                  trailing: s.autostartProtocol == p
+                                      ? const Icon(Icons.check_rounded)
+                                      : null,
+                                  onTap: () => Navigator.pop(context, p),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (selected != null) {
+                        await state.setAutostartProtocol(selected);
+                      }
+                    }
+                  : null,
+            ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Порт прокси'),
