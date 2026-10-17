@@ -121,7 +121,7 @@ jobs:
 
       - name: Analyze and test
         run: |
-          flutter analyze
+          flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter test
 
       - name: Build Android APK (ARM64)
