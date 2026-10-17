@@ -167,14 +167,14 @@ class PageHeader extends StatelessWidget {
       children: [
         Text(
           title,
-          style: t.displaySmall?.copyWith(fontWeight: FontWeight.w600),
+          style: (constraints.maxWidth < 600 ? t.headlineMedium : t.displaySmall)?.copyWith(fontWeight: FontWeight.w600),
         ),
         if (subtitle != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               subtitle!,
-              style: t.bodyLarge?.copyWith(
+              style: (constraints.maxWidth < 600 ? t.bodyMedium : t.bodyLarge)?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -188,7 +188,7 @@ class PageHeader extends StatelessWidget {
         // the heading and a row of action buttons on compact windows.
         final compact = constraints.maxWidth < 820;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
+          padding: EdgeInsets.fromLTRB(constraints.maxWidth < 600 ? 16 : 32, 8, constraints.maxWidth < 600 ? 16 : 32, 12),
           child: compact
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
