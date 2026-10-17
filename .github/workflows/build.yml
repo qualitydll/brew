@@ -28,6 +28,12 @@ jobs:
           python -m pip install --disable-pip-version-check Pillow
           python scripts/generate_brand_assets.py
 
+      - name: Setup Go for HyL client sidecar
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache: false
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -55,9 +61,14 @@ jobs:
             throw "Pinned Mihomo archive did not contain mihomo.exe."
           }
           $release = "build/windows/x64/runner/Release"
+          $hylClient = Join-Path $env:RUNNER_TEMP "hyl-client.exe"
+          go build -trimpath -ldflags="-s -w" -o $hylClient ./cmd/hyl-client
+          if ($LASTEXITCODE -ne 0) { throw "HyL client build failed." }
           $target = Join-Path $release "core"
           New-Item -ItemType Directory -Force -Path $target | Out-Null
           Copy-Item $binary.FullName (Join-Path $target "mihomo.exe") -Force
+          Copy-Item $hylClient (Join-Path $target "hyl-client.exe") -Force
+          if (!(Test-Path (Join-Path $target "hyl-client.exe"))) { throw "HyL client was not bundled." }
           & (Join-Path $target "mihomo.exe") -v
           if ($LASTEXITCODE -ne 0) {
             throw "Bundled Mihomo core failed to start."
