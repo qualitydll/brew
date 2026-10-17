@@ -18,6 +18,15 @@ bool get isDesktop =>
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final state = AppState();
+
+  // On Android, render a real Flutter startup surface before asynchronous
+  // storage/profile initialization. Otherwise a slow or failed init leaves
+  // the user staring at a blank screen after the native splash disappears.
+  if (Platform.isAndroid) {
+    runApp(_AndroidBootstrap(state: state));
+    return;
+  }
+
   await state.init();
 
   if (isDesktop) {
@@ -185,6 +194,100 @@ class BrewApp extends StatelessWidget {
               home: const Shell(),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+
+class _AndroidBootstrap extends StatefulWidget {
+  const _AndroidBootstrap({required this.state});
+
+  final AppState state;
+
+  @override
+  State<_AndroidBootstrap> createState() => _AndroidBootstrapState();
+}
+
+class _AndroidBootstrapState extends State<_AndroidBootstrap> {
+  Object? _error;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await widget.state.init();
+      if (!mounted) return;
+      setState(() => _ready = true);
+    } catch (error, stack) {
+      debugPrint('Brew Android startup failed: $error\\n$stack');
+      if (!mounted) return;
+      setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_ready) return BrewApp(state: widget.state);
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: kBrewOrange,
+          brightness: Brightness.dark,
+        ),
+      ),
+      home: Scaffold(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 340),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: _error == null
+                  ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 20),
+                        Text('Запускаем Brew…'),
+                      ],
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, size: 42),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Не удалось запустить Brew',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 10),
+                        SelectableText(
+                          _error.toString(),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton(
+                          onPressed: () => setState(() {
+                            _error = null;
+                            _ready = false;
+                            _initialize();
+                          }),
+                          child: const Text('Повторить'),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
         ),
       ),
     );
