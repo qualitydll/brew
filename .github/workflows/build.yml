@@ -111,6 +111,17 @@ jobs:
         flutter analyze
         flutter test
 
+    - name: Validate SNI defaults and Android startup wiring
+      shell: bash
+      run: |
+        set -euo pipefail
+        grep -Fq "get sniSpoofing => _prefs.getBool('sniSpoofing') ?? false;" lib/state/settings.dart
+        grep -Fq 'sniSpoofing: settings.sniSpoofing' lib/state/app_state.dart
+        grep -Fq "WidgetsFlutterBinding.ensureInitialized();" lib/main.dart
+        grep -Fq "runApp(BrewApp(state: state));" lib/main.dart
+        grep -Fq "MihomoRuntime.load(this)" android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
+        grep -Fq "test('SNI spoofing is disabled by default and preserves original SNI'" test/core/config_builder_test.dart
+
     - name: Build Android APK (ARM64 only)
       run: flutter build apk --release --target-platform android-arm64
 
