@@ -540,7 +540,7 @@ class _SniSpoofingTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Row(
         children: [
-          const Text('SNI Spoofing'),
+          const Text('SNI Spoofing · отключено'),
           const SizedBox(width: 4),
           IconButton(
             iconSize: 18,
@@ -579,7 +579,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return GlassCard(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, MediaQuery.sizeOf(context).width < 600 ? 14 : 20, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, MediaQuery.sizeOf(context).width < 600 ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
