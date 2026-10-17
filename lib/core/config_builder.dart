@@ -197,6 +197,25 @@ Map<String, dynamic> applyCoreOptions(
     }
   }
 
+  // HyL is provided by a local client sidecar; Mihomo only sees SOCKS5.
+  final proxyList = cfg['proxies'];
+  if (proxyList is List) {
+    var hylIndex = 0;
+    cfg['proxies'] = [
+      for (final item in proxyList)
+        if (item is Map && item['type']?.toString().toLowerCase() == 'hyl')
+          <String, dynamic>{
+            'name': item['name']?.toString() ?? 'HyL',
+            'type': 'socks5',
+            'server': '127.0.0.1',
+            'port': 20808 + hylIndex++,
+            'udp': false,
+          }
+        else
+          item,
+    ];
+  }
+
   if (o.userRules.isNotEmpty) {
     // Mihomo uses first-match semantics, so custom rules take precedence.
     final providerRules = cfg['rules'];
