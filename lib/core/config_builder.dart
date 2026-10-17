@@ -204,7 +204,7 @@ Map<String, dynamic> applyCoreOptions(
         for (final proxy in proxies)
           if (proxy is Map)
             _applyDpiBypassToProxy(
-              proxy,
+              Map<String, dynamic>.from(proxy),
               _sniWhitelistDomains[domainIndex++ % _sniWhitelistDomains.length],
             )
           else
