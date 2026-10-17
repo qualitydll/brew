@@ -167,14 +167,14 @@ class PageHeader extends StatelessWidget {
       children: [
         Text(
           title,
-          style: (constraints.maxWidth < 600 ? t.headlineMedium : t.displaySmall)?.copyWith(fontWeight: FontWeight.w600),
+          style: (MediaQuery.sizeOf(context).width < 600 ? t.headlineMedium : t.displaySmall)?.copyWith(fontWeight: FontWeight.w600),
         ),
         if (subtitle != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               subtitle!,
-              style: (constraints.maxWidth < 600 ? t.bodyMedium : t.bodyLarge)?.copyWith(
+              style: (MediaQuery.sizeOf(context).width < 600 ? t.bodyMedium : t.bodyLarge)?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
