@@ -699,12 +699,14 @@ class AppState extends ChangeNotifier {
         final configFile = File(p.join(directory.path, 'client-$localPort.yaml'));
         final sni = proxy['sni']?.toString() ?? '';
         final ca = proxy['ca']?.toString() ?? '';
+        final pin = proxy['pin']?.toString() ?? '';
         final insecure = proxy['insecure'] == true;
         final yaml = 'server: ${jsonEncode('$server:$port')}\n'
             'auth:\n  password: ${jsonEncode(password)}\n'
             'tls:\n  sni: ${jsonEncode(sni)}\n'
             '  insecure: $insecure\n'
             '  ca: ${jsonEncode(ca)}\n'
+            '  pin_sha256: ${jsonEncode(pin)}\n'
             'local_socks: ${jsonEncode('127.0.0.1:$localPort')}\n'
             'mobile:\n  keepalive_interval: 25s\n';
         await configFile.writeAsString(yaml, flush: true);
