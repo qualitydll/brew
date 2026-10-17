@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-const kAppName = 'brew';
+const kAppName = 'Brew';
 const kAppVersion = '0.1.0';
 
 const kBrewOrange = Color(0xFFF2711C);
