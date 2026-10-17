@@ -6,7 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.ComponentName
-import android.content.Context
 import android.service.quicksettings.TileService
 import android.content.pm.ServiceInfo
 import android.net.VpnService
@@ -124,6 +123,8 @@ class MihomoVpnService : VpnService() {
                         if (activeSessionId == sessionId) {
                             stopMihomo()
                             activeSessionId = null
+                        }
+                        if (activeSessionId == null) {
                             getSharedPreferences(TILE_PREFS, MODE_PRIVATE).edit()
                                 .remove(PREF_ACTIVE_SESSION_ID)
                                 .apply()
