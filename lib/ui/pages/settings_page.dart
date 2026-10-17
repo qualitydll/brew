@@ -89,13 +89,14 @@ class SettingsPage extends StatelessWidget {
         icon: Icons.router_rounded,
         title: 'Подключение',
         children: [
-          if (Platform.isAndroid)
+          if (Platform.isAndroid) ...[
             const ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('Android VPN'),
               subtitle: Text('Весь трафик проходит через системный VpnService.'),
-            )
-          else ...[
+            ),
+            _SniSpoofingTile(state: state),
+          ] else ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Системный прокси'),
@@ -500,6 +501,73 @@ Future<String?> _promptMultiline(
       ],
     ),
   );
+}
+
+class _SniSpoofingTile extends StatelessWidget {
+  const _SniSpoofingTile({required this.state});
+  final AppState state;
+
+  void _showInfo(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.security_rounded),
+        title: const Text('SNI Spoofing'),
+        content: const SizedBox(
+          width: 400,
+          child: Text(
+            'Когда мобильный оператор включает белые списки, '
+            'он проверяет поле SNI в TLS-запросе — открытое поле, '
+            'которое видно до шифрования.\n\n'
+            'SNI Spoofing заменяет это поле на домен из белого списка '
+            '(например, gosuslugi.ru), поэтому оператор думает, что вы '
+            'обращаетесь к разрешённому сайту, и пропускает трафик.\n\n'
+            'Реальное соединение при этом идёт к вашему VPN-серверу — '
+            'данные зашифрованы и защищены.\n\n'
+            'Помогает, если оператор фильтрует только по SNI, '
+            'не проверяя IP-адрес назначения.',
+            style: TextStyle(height: 1.55),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Понятно'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Row(
+        children: [
+          const Text('SNI Spoofing'),
+          const SizedBox(width: 4),
+          IconButton(
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Что это?',
+            icon: Icon(
+              Icons.help_outline_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              size: 18,
+            ),
+            onPressed: () => _showInfo(context),
+          ),
+        ],
+      ),
+      subtitle: const Text(
+        'Маскирует VPN-трафик под разрешённые сайты при блокировке оператором',
+      ),
+      value: state.settings.sniSpoofing,
+      onChanged: state.setSniSpoofing,
+    );
+  }
 }
 
 class _Section extends StatelessWidget {

@@ -71,6 +71,9 @@ class Settings {
   bool get allowLan => _prefs.getBool('allowLan') ?? false;
   set allowLan(bool v) => _prefs.setBool('allowLan', v);
 
+  bool get sniSpoofing => _prefs.getBool('sniSpoofing') ?? false;
+  set sniSpoofing(bool v) => _prefs.setBool('sniSpoofing', v);
+
   String? get corePath => _prefs.getString('corePath');
   set corePath(String? v) =>
       v == null ? _prefs.remove('corePath') : _prefs.setString('corePath', v);

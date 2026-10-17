@@ -69,7 +69,12 @@ class _Hero extends StatelessWidget {
       state.profiles.isEmpty
           ? ('Добро пожаловать', 'Добавьте подписку, чтобы начать')
           : ('Не защищено', 'Нажмите, чтобы подключиться'),
-    ConnStatus.connecting => ('Подключение…', 'Запускаем ядро mihomo'),
+    ConnStatus.connecting => (
+        'Подключение…',
+        state.settings.sniSpoofing
+            ? 'Запускаем ядро mihomo · Включение SNIS'
+            : 'Запускаем ядро mihomo',
+      ),
     ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
     ConnStatus.connected => ('Защищено', ''),
   };
@@ -118,6 +123,11 @@ class _Hero extends StatelessWidget {
                   style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
         ),
+        if (state.isConnected && state.settings.sniSpoofing)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: _SniActiveBadge(),
+          ),
         const SizedBox(height: 28),
         SegmentedButton<String>(
           segments: const [
@@ -707,5 +717,39 @@ class _ProfileCard extends StatelessWidget {
       return 'Использовано не менее 90% доступного трафика';
     }
     return null;
+  }
+}
+
+class _SniActiveBadge extends StatelessWidget {
+  const _SniActiveBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.shield_rounded,
+            size: 14,
+            color: scheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'SNI Spoofing активен',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

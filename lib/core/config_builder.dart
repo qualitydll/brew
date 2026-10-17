@@ -16,6 +16,7 @@ class CoreOptions {
     required this.allowLan,
     this.externalTun = false,
     this.userRules = const [],
+    this.sniSpoofing = false,
   });
 
   final int mixedPort;
@@ -26,7 +27,23 @@ class CoreOptions {
   final bool allowLan;
   final bool externalTun;
   final List<String> userRules;
+
+  /// When true, overrides the SNI field of every proxy with a domain from the
+  /// Russian mobile-internet whitelist so that the TLS ClientHello passes
+  /// the operator's allowlist check.
+  final bool sniSpoofing;
 }
+
+/// Domains that are reliably allowed on Russian mobile networks during
+/// whitelist-mode restrictions.
+const _sniWhitelistDomains = [
+  'gosuslugi.ru',
+  'vk.com',
+  'yandex.ru',
+  'sberbank.ru',
+  'mail.ru',
+  'ok.ru',
+];
 
 const _privateRules = [
   'IP-CIDR,127.0.0.0/8,DIRECT,no-resolve',
@@ -100,6 +117,26 @@ Map<String, dynamic> applyCoreOptions(
   cfg['tcp-concurrent'] = true;
   cfg['find-process-mode'] = 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
+
+  // SNI Spoofing: replace the servername of every proxy so the TLS
+  // ClientHello shows a whitelisted domain to the operator's DPI filter.
+  if (o.sniSpoofing) {
+    final proxies = cfg['proxies'];
+    if (proxies is List) {
+      var domainIndex = 0;
+      cfg['proxies'] = [
+        for (final proxy in proxies)
+          if (proxy is Map)
+            {
+              ...proxy,
+              'servername': _sniWhitelistDomains[
+                  domainIndex++ % _sniWhitelistDomains.length],
+            }
+          else
+            proxy,
+      ];
+    }
+  }
 
   if (o.userRules.isNotEmpty) {
     // Mihomo uses first-match semantics, so custom rules take precedence.

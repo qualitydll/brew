@@ -417,6 +417,7 @@ class AppState extends ChangeNotifier {
     tun: !Platform.isAndroid && settings.tun,
     allowLan: settings.allowLan,
     externalTun: Platform.isAndroid,
+    sniSpoofing: settings.sniSpoofing,
     userRules: [
       ...settings.domainRules,
       ...settings.userRules
@@ -899,6 +900,12 @@ class AppState extends ChangeNotifier {
     settings.allowLan = v;
     notifyListeners();
     await _api?.patchConfig({'allow-lan': v});
+  }
+
+  Future<void> setSniSpoofing(bool v) async {
+    settings.sniSpoofing = v;
+    notifyListeners();
+    if (isConnected) await reconnect();
   }
 
   Future<void> setMixedPort(int port) async {
