@@ -41,7 +41,6 @@ Future<void> main() async {
       title: kAppName,
       titleBarStyle: TitleBarStyle.hidden,
       backgroundColor: Colors.transparent,
-      resizable: false,
     );
     final closeHandler = _CloseHandler(state);
     await windowManager.waitUntilReadyToShow(options, () async {
