@@ -28,14 +28,14 @@ class CoreOptions {
   final bool externalTun;
   final List<String> userRules;
 
-  /// When true, overrides the SNI field of every proxy with a domain from the
-  /// Russian mobile-internet whitelist so that the TLS ClientHello passes
-  /// the operator's allowlist check.
+  /// When true, overrides SNI only on supported non-Reality proxy types.
+  /// This does not bypass certificate validation; the server must be configured
+  /// for the chosen name or the proxy must explicitly permit insecure TLS.
   final bool sniSpoofing;
 }
 
-/// Extended whitelist of domains allowed on Russian mobile networks during
-/// whitelist-mode restrictions. Includes government, banking, and popular services.
+/// Candidate SNI hostnames used by the optional override. Availability varies
+/// by operator and none of these names is guaranteed to pass every allowlist.
 const _sniWhitelistDomains = [
   'gosuslugi.ru',
   'vk.com',
@@ -68,7 +68,7 @@ const _sniWhitelistDomains = [
 /// part of the Reality handshake and replacing it usually breaks the tunnel.
 /// Do not mutate unrelated transport fields or inject global config keys.
 Map<String, dynamic> _applyDpiBypassToProxy(
-  Map proxy,
+  Map<dynamic, dynamic> proxy,
   String sniDomain,
 ) {
   final result = <String, dynamic>{
