@@ -62,12 +62,19 @@ class MihomoCore {
       configPath,
     ]);
     if (res.exitCode == 0) return null;
-    final out = '${res.stdout}\n${res.stderr}';
-    final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\]|\\.)*)"')
+    final out = '${res.stdout}\\n${res.stderr}'.trim();
+    final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
+        .map((message) => message.trim())
+        .where((message) => message.isNotEmpty)
         .toList();
-    return msgs.isNotEmpty ? msgs.last : out.trim();
+    // Some Mihomo builds emit an empty structured message while writing the
+    // useful validation reason to another output line. Never hide that reason.
+    if (msgs.isNotEmpty) return msgs.last;
+    if (out.isNotEmpty) return out;
+    return 'Mihomo завершил проверку с кодом ${res.exitCode}, но не вывел причину. '
+        'Проверьте журнал приложения и файл конфигурации.';
   }
 
   Future<void> start({
