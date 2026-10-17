@@ -15,7 +15,9 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= 1050;
+    final pageSize = MediaQuery.sizeOf(context);
+    final wide = pageSize.width >= 1050;
+    final horizontalPadding = pageSize.width < 600 ? 16.0 : 24.0;
     final hero = _Hero(state: state);
     final cards = [
       _ServerCard(state: state),
@@ -47,12 +49,12 @@ class HomePage extends StatelessWidget {
       );
     }
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 20),
       children: [
         hero,
         for (var i = 0; i < cards.length; i++)
           Padding(
-            padding: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.only(top: 12),
             child: StaggeredEntrance(index: i + 1, child: cards[i]),
           ),
       ],
@@ -72,7 +74,7 @@ class _Hero extends StatelessWidget {
     ConnStatus.connecting => (
         'Подключение…',
         state.settings.sniSpoofing
-            ? 'Запускаем ядро mihomo · Включение SNIS'
+            ? 'Запускаем ядро mihomo'
             : 'Запускаем ядро mihomo',
       ),
     ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
