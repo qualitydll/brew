@@ -127,6 +127,12 @@ jobs:
         grep -Fq "runApp(BrewApp(state: state));" lib/main.dart
         grep -Fq "MihomoRuntime.load(this)" android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
         grep -Fq "test('SNI spoofing is disabled by default and preserves original SNI'" test/core/config_builder_test.dart
+        grep -Fq "test('legacy SNI spoofing flag never overwrites provider SNI'" test/core/config_builder_test.dart
+        grep -Fq "test('max.ru DIRECT rule is first and survives provider routing rules'" test/core/config_builder_test.dart
+        grep -Fq 'BrewQuickSettingsTileService' android/app/src/main/AndroidManifest.xml
+        grep -Fq 'android.service.quicksettings.action.QS_TILE' android/app/src/main/AndroidManifest.xml
+        test -f android/app/src/main/kotlin/dev/brew/brew/BrewQuickSettingsTileService.kt
+        test -f android/app/src/main/res/drawable/brew_tile_icon.xml
 
     - name: Build Android APK (ARM64 only)
       run: flutter build apk --release --target-platform android-arm64
