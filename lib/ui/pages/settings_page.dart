@@ -291,9 +291,9 @@ class SettingsPage extends StatelessWidget {
         const PageHeader(title: 'Настройки'),
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+            padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 0, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 20),
             itemCount: sections.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 16),
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) =>
                 StaggeredEntrance(index: i, child: sections[i]),
           ),
@@ -512,7 +512,7 @@ class _SniSpoofingTile extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.security_rounded),
-        title: const Text('SNI Spoofing'),
+        title: const Text('SNI Spoofing · отключено'),
         content: const SizedBox(
           width: 400,
           child: Text(
@@ -562,10 +562,10 @@ class _SniSpoofingTile extends StatelessWidget {
         ],
       ),
       subtitle: const Text(
-        'Маскирует VPN-трафик под разрешённые сайты при блокировке оператором',
+        'Автоматическая подмена SNI отключена: она ломала совместимость с частью серверов',
       ),
-      value: state.settings.sniSpoofing,
-      onChanged: state.setSniSpoofing,
+      value: false,
+      onChanged: null,
     );
   }
 }
