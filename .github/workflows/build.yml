@@ -31,6 +31,9 @@ jobs:
       with:
         channel: 'stable'
 
+    - name: Clean Flutter build outputs
+      run: flutter clean
+
     - name: Get dependencies
       run: flutter pub get
 
@@ -102,6 +105,9 @@ jobs:
       uses: android-actions/setup-android@v3
       with:
         packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.0.13004108'
+
+    - name: Clean Flutter build outputs
+      run: flutter clean
 
     - name: Get dependencies
       run: flutter pub get
