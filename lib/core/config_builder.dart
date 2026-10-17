@@ -63,32 +63,6 @@ const _sniWhitelistDomains = [
   'lamoda.ru',
 ];
 
-/// DPI bypass methods for Russian mobile operators
-enum _DpiBypassMethod {
-  basicSniSpoof,
-  multiSni,
-  fragment,
-  randomPadding,
-  fakeTls,
-}
-
-/// Advanced DPI bypass configuration
-class _DpiBypassConfig {
-  final _DpiBypassMethod method;
-  final List<String> sniDomains;
-  final bool enableFragment;
-  final bool enablePadding;
-  final int paddingLength;
-
-  const _DpiBypassConfig({
-    this.method = _DpiBypassMethod.basicSniSpoof,
-    this.sniDomains = _sniWhitelistDomains,
-    this.enableFragment = true,
-    this.enablePadding = true,
-    this.paddingLength = 100,
-  });
-}
-
 /// Apply SNI override only to outbound types with a supported SNI field.
 /// Reality configurations deliberately keep their original servername: it is
 /// part of the Reality handshake and replacing it usually breaks the tunnel.
