@@ -44,7 +44,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   @override
   Widget build(BuildContext context) {
-    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubicEmphasized);
+    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
     return AnimatedBuilder(
       animation: curve,
       builder: (context, child) => Opacity(
