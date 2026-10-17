@@ -65,7 +65,7 @@ class MihomoCore {
       configPath,
     ]);
     if (res.exitCode == 0) return null;
-    final out = '${res.stdout}\n${res.stderr}'.trim();
+    final out = '${res.stdout}\\n${res.stderr}'.trim();
     final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
