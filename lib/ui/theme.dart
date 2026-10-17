@@ -109,7 +109,7 @@ ThemeData buildTheme(ColorScheme scheme) {
         borderSide: BorderSide.none,
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: kFClashCardBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
