@@ -51,10 +51,10 @@ class _LogsPageState extends State<LogsPage> {
         ),
         Expanded(
           child: Container(
-            margin: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+            margin: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 12 : 24, 0, MediaQuery.sizeOf(context).width < 600 ? 12 : 24, 16),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLowest.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: scheme.outlineVariant.withValues(alpha: 0.4),
               ),
@@ -78,7 +78,7 @@ class _LogsPageState extends State<LogsPage> {
                 }
                 return ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 10 : 16),
                   itemCount: items.length,
                   itemBuilder: (context, i) => _LogLine(entry: items[i]),
                 );
