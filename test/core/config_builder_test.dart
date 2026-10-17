@@ -199,13 +199,14 @@ rules:
 
   test('HyL URI parses and maps to local SOCKS5', () {
     const link = 'hyl://very-long-test-password@vpn.example:443'
-        '?sni=vpn.example&insecure=1#HyL%20test';
+        '?sni=vpn.example&pin=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef#HyL%20test';
     final parsed = parseSubscription(link);
     expect(parsed.proxyCount, 1);
     expect(parsed.proxies.single['type'], 'hyl');
     expect(parsed.proxies.single['password'], 'very-long-test-password');
     expect(parsed.proxies.single['sni'], 'vpn.example');
-    expect(parsed.proxies.single['insecure'], isTrue);
+    expect(parsed.proxies.single['pin'], '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef');
+    expect(parsed.proxies.single['insecure'], isFalse);
     final config = applyCoreOptions(baseConfigFor(parsed), const CoreOptions(
       mixedPort: 7890, apiPort: 9097, secret: 'test-secret', mode: 'rule',
       tun: false, allowLan: false,
