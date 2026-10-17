@@ -222,4 +222,62 @@ rules:
     );
   });
 
+  test('legacy SNI spoofing flag never overwrites provider SNI', () {
+    const original = <String, dynamic>{
+      'proxies': [
+        {
+          'name': 'Reality server',
+          'type': 'vless',
+          'server': 'node.example',
+          'servername': 'reality.example',
+          'reality-opts': {'public-key': 'key', 'short-id': 'abcd'},
+        },
+      ],
+    };
+    final config = applyCoreOptions(
+      original,
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+        sniSpoofing: true,
+      ),
+    );
+
+    expect(config['proxies'], original['proxies']);
+    expect(
+      ((config['proxies'] as List).single as Map)['servername'],
+      'reality.example',
+    );
+  });
+
+  test('max.ru DIRECT rule is first and survives provider routing rules', () {
+    final config = applyCoreOptions(
+      const {
+        'rules': [
+          'DOMAIN-SUFFIX,max.ru,PROXY',
+          'MATCH,PROXY',
+        ],
+      },
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+        userRules: ['DOMAIN-SUFFIX,max.ru,DIRECT'],
+      ),
+    );
+
+    expect(config['rules'], [
+      'DOMAIN-SUFFIX,max.ru,DIRECT',
+      'DOMAIN-SUFFIX,max.ru,PROXY',
+      'MATCH,PROXY',
+    ]);
+  });
+
 }

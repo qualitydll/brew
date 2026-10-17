@@ -5,6 +5,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.ComponentName
+import android.service.quicksettings.TileService
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
@@ -74,13 +76,23 @@ class MihomoVpnService : VpnService() {
                             activeSessionId = null
                         }
                         activeSessionId = sessionId
-                        startMihomo(configPath ?: error("Mihomo config path is missing."))
+                        val savedConfigPath = configPath ?: error("Mihomo config path is missing.")
+                        startMihomo(savedConfigPath)
+                        getSharedPreferences(TILE_PREFS, MODE_PRIVATE).edit()
+                            .putString(PREF_CONFIG_PATH, savedConfigPath)
+                            .putString(PREF_ACTIVE_SESSION_ID, sessionId)
+                            .apply()
+                        requestTileRefresh()
                         receiver?.send(Activity.RESULT_OK, Bundle())
                     } catch (error: Throwable) {
                         val message = try {
                             if (activeSessionId == sessionId) {
                                 stopMihomo()
                                 activeSessionId = null
+                                getSharedPreferences(TILE_PREFS, MODE_PRIVATE).edit()
+                                    .remove(PREF_ACTIVE_SESSION_ID)
+                                    .apply()
+                                requestTileRefresh()
                             }
                             error.message ?: error.toString()
                         } catch (cleanupError: Throwable) {
@@ -111,6 +123,12 @@ class MihomoVpnService : VpnService() {
                         if (activeSessionId == sessionId) {
                             stopMihomo()
                             activeSessionId = null
+                        }
+                        if (activeSessionId == null) {
+                            getSharedPreferences(TILE_PREFS, MODE_PRIVATE).edit()
+                                .remove(PREF_ACTIVE_SESSION_ID)
+                                .apply()
+                            requestTileRefresh()
                         }
                         receiver?.send(Activity.RESULT_OK, Bundle())
                         if (activeSessionId == null) finishServiceIfCurrent(startId)
@@ -274,6 +292,10 @@ class MihomoVpnService : VpnService() {
             worker.execute {
                 runCatching { stopMihomo() }
                 activeSessionId = null
+                getSharedPreferences(TILE_PREFS, MODE_PRIVATE).edit()
+                    .remove(PREF_ACTIVE_SESSION_ID)
+                    .apply()
+                requestTileRefresh()
                 stopSelf()
             }
         }
@@ -282,8 +304,26 @@ class MihomoVpnService : VpnService() {
 
     override fun onDestroy() {
         runCatching { stopMihomo() }
+        if (activeSessionId != null) {
+            activeSessionId = null
+            getSharedPreferences(TILE_PREFS, MODE_PRIVATE).edit()
+                .remove(PREF_ACTIVE_SESSION_ID)
+                .apply()
+            requestTileRefresh()
+        }
         worker.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun requestTileRefresh() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            runCatching {
+                TileService.requestListeningState(
+                    this,
+                    ComponentName(this, BrewQuickSettingsTileService::class.java),
+                )
+            }
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -301,6 +341,9 @@ class MihomoVpnService : VpnService() {
         const val EXTRA_SESSION_ID = "sessionId"
         const val EXTRA_RESULT = "resultReceiver"
         const val EXTRA_ERROR = "error"
+        const val TILE_PREFS = "brew_quick_settings_tile"
+        const val PREF_CONFIG_PATH = "config_path"
+        const val PREF_ACTIVE_SESSION_ID = "active_session_id"
 
         private const val NOTIFICATION_CHANNEL = "brew_vpn"
         private const val NOTIFICATION_ID = 1

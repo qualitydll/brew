@@ -127,6 +127,12 @@ jobs:
         grep -Fq "runApp(BrewApp(state: state));" lib/main.dart
         grep -Fq "MihomoRuntime.load(this)" android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
         grep -Fq "test('SNI spoofing is disabled by default and preserves original SNI'" test/core/config_builder_test.dart
+        grep -Fq "test('legacy SNI spoofing flag never overwrites provider SNI'" test/core/config_builder_test.dart
+        grep -Fq "test('max.ru DIRECT rule is first and survives provider routing rules'" test/core/config_builder_test.dart
+        grep -Fq 'BrewQuickSettingsTileService' android/app/src/main/AndroidManifest.xml
+        grep -Fq 'android.service.quicksettings.action.QS_TILE' android/app/src/main/AndroidManifest.xml
+        test -f android/app/src/main/kotlin/dev/brew/brew/BrewQuickSettingsTileService.kt
+        test -f android/app/src/main/res/drawable/brew_tile_icon.xml
 
     - name: Build Android APK (ARM64 only)
       run: flutter build apk --release --target-platform android-arm64
@@ -142,10 +148,17 @@ jobs:
           echo "::error::APK package is not dev.brew.brew."
           exit 1
         fi
+        if ! grep -Fq "application-label:'Brew'" <<<"$badging"; then
+          echo "::error::APK launcher label is not Brew."
+          exit 1
+        fi
 
         manifest="$("$aapt" dump xmltree "$apk" AndroidManifest.xml)"
         for required in \
           "MihomoVpnService" \
+          "BrewQuickSettingsTileService" \
+          "android.permission.BIND_QUICK_SETTINGS_TILE" \
+          "android.service.quicksettings.action.QS_TILE" \
           "android.permission.BIND_VPN_SERVICE" \
           "android.net.VpnService"; do
           if ! grep -Fq "$required" <<<"$manifest"; then
@@ -220,12 +233,16 @@ jobs:
         test -f test/core/mihomo_api_test.dart
         grep -Fq 'await _waitForApi(api)' lib/state/app_state.dart
 
+    - name: Rename APK to Brew.apk
+      shell: bash
+      run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Brew.apk
+
     - name: Report APK size
       shell: bash
-      run: du -h build/app/outputs/flutter-apk/app-release.apk
+      run: du -h build/app/outputs/flutter-apk/Brew.apk
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: android-release-arm64
-        path: build/app/outputs/flutter-apk/app-release.apk
+        name: Brew-android-arm64
+        path: build/app/outputs/flutter-apk/Brew.apk

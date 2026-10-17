@@ -280,7 +280,7 @@ class SettingsPage extends StatelessWidget {
         title: 'О программе',
         children: [
           Text(
-            'brew 0.1.0 — VPN-клиент на базе mihomo с дизайном Material You.',
+            'Brew 0.1.0 — VPN-клиент на базе mihomo с дизайном Material You.',
           ),
         ],
       ),
@@ -291,9 +291,9 @@ class SettingsPage extends StatelessWidget {
         const PageHeader(title: 'Настройки'),
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+            padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 0, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 20),
             itemCount: sections.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 16),
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) =>
                 StaggeredEntrance(index: i, child: sections[i]),
           ),
@@ -512,20 +512,15 @@ class _SniSpoofingTile extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.security_rounded),
-        title: const Text('SNI Spoofing'),
+        title: const Text('SNI Spoofing · отключено'),
         content: const SizedBox(
           width: 400,
           child: Text(
-            'Когда мобильный оператор включает белые списки, '
-            'он проверяет поле SNI в TLS-запросе — открытое поле, '
-            'которое видно до шифрования.\n\n'
-            'SNI Spoofing заменяет это поле на домен из белого списка '
-            '(например, gosuslugi.ru), поэтому оператор думает, что вы '
-            'обращаетесь к разрешённому сайту, и пропускает трафик.\n\n'
-            'Реальное соединение при этом идёт к вашему VPN-серверу — '
-            'данные зашифрованы и защищены.\n\n'
-            'Помогает, если оператор фильтрует только по SNI, '
-            'не проверяя IP-адрес назначения.',
+            'Произвольная замена SNI у всех прокси не является универсальным '
+            'решением: она может ломать TLS, проверку сертификата, Reality '
+            'и серверную маршрутизацию. Для корректной работы SNI должен '
+            'соответствовать настройкам VPN-сервера. Поэтому автоматическая '
+            'подмена отключена, а исходные параметры подписки сохраняются.',
             style: TextStyle(height: 1.55),
           ),
         ),
@@ -545,7 +540,7 @@ class _SniSpoofingTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Row(
         children: [
-          const Text('SNI Spoofing'),
+          const Text('SNI Spoofing · отключено'),
           const SizedBox(width: 4),
           IconButton(
             iconSize: 18,
@@ -562,10 +557,10 @@ class _SniSpoofingTile extends StatelessWidget {
         ],
       ),
       subtitle: const Text(
-        'Маскирует VPN-трафик под разрешённые сайты при блокировке оператором',
+        'Автоматическая подмена SNI отключена: она ломала совместимость с частью серверов',
       ),
-      value: state.settings.sniSpoofing,
-      onChanged: state.setSniSpoofing,
+      value: false,
+      onChanged: null,
     );
   }
 }
@@ -584,7 +579,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return GlassCard(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, MediaQuery.sizeOf(context).width < 600 ? 14 : 20, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, MediaQuery.sizeOf(context).width < 600 ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

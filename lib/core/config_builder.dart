@@ -28,22 +28,10 @@ class CoreOptions {
   final bool externalTun;
   final List<String> userRules;
 
-  /// When true, overrides the SNI field of every proxy with a domain from the
-  /// Russian mobile-internet whitelist so that the TLS ClientHello passes
-  /// the operator's allowlist check.
+  /// Legacy preference retained for compatibility. It is intentionally ignored:
+  /// replacing the provider's SNI with an unrelated domain breaks many servers.
   final bool sniSpoofing;
 }
-
-/// Domains that are reliably allowed on Russian mobile networks during
-/// whitelist-mode restrictions.
-const _sniWhitelistDomains = [
-  'gosuslugi.ru',
-  'vk.com',
-  'yandex.ru',
-  'sberbank.ru',
-  'mail.ru',
-  'ok.ru',
-];
 
 const _privateRules = [
   'IP-CIDR,127.0.0.0/8,DIRECT,no-resolve',
@@ -118,25 +106,10 @@ Map<String, dynamic> applyCoreOptions(
   cfg['find-process-mode'] = 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
-  // SNI Spoofing: replace the servername of every proxy so the TLS
-  // ClientHello shows a whitelisted domain to the operator's DPI filter.
-  if (o.sniSpoofing) {
-    final proxies = cfg['proxies'];
-    if (proxies is List) {
-      var domainIndex = 0;
-      cfg['proxies'] = [
-        for (final proxy in proxies)
-          if (proxy is Map)
-            {
-              ...proxy,
-              'servername': _sniWhitelistDomains[
-                  domainIndex++ % _sniWhitelistDomains.length],
-            }
-          else
-            proxy,
-      ];
-    }
-  }
+  // Keep the provider's TLS servername untouched. Replacing SNI with an
+  // unrelated domain is not generic spoofing: it can break TLS certificate
+  // validation, Reality handshakes, and server-side routing. The legacy
+  // preference is retained for compatibility but does not mutate proxy data.
 
   if (o.userRules.isNotEmpty) {
     // Mihomo uses first-match semantics, so custom rules take precedence.

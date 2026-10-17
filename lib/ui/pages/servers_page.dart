@@ -51,7 +51,7 @@ class ServersPage extends StatelessWidget {
         else ...[
           if (state.groups.length > 1)
             Padding(
-              padding: const EdgeInsets.fromLTRB(32, 0, 32, 12),
+              padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 0, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 10),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -86,9 +86,9 @@ class _ProxyOverview extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 0, 32, 14),
+      padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 0, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 10),
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 14 : 18),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -98,7 +98,7 @@ class _ProxyOverview extends StatelessWidget {
               scheme.tertiaryContainer.withValues(alpha: 0.72),
             ],
           ),
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
         ),
         child: Row(
