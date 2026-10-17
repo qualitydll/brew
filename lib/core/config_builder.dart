@@ -89,36 +89,44 @@ class _DpiBypassConfig {
   });
 }
 
-/// Apply DPI bypass methods to a single proxy configuration
+/// Apply SNI override only to outbound types with a supported SNI field.
+/// Reality configurations deliberately keep their original servername: it is
+/// part of the Reality handshake and replacing it usually breaks the tunnel.
+/// Do not mutate unrelated transport fields or inject global config keys.
 Map<String, dynamic> _applyDpiBypassToProxy(
-  Map<String, dynamic> proxy,
+  Map proxy,
   String sniDomain,
 ) {
-  final result = Map<String, dynamic>.from(proxy);
+  final result = <String, dynamic>{
+    for (final entry in proxy.entries) entry.key.toString(): entry.value,
+  };
+  final type = result['type']?.toString().toLowerCase() ?? '';
 
-  // Basic SNI spoofing
-  result['servername'] = sniDomain;
+  // Reality server names are negotiated with the server and cannot be
+  // replaced by a generic allowlist hostname.
+  if (result.containsKey('reality-opts')) return result;
 
-  // Enable client fingerprint (helps with DPI detection)
-  final type = proxy['type'] as String?;
-  if (type == 'vless' || type == 'vmess' || type == 'trojan') {
-    result['client-fingerprint'] = 'chrome';
+  switch (type) {
+    case 'vless':
+    case 'vmess':
+      // These protocols need an explicitly enabled TLS layer.
+      if (result['tls'] != true) return result;
+      result['servername'] = sniDomain;
+      result.putIfAbsent('client-fingerprint', () => 'chrome');
+      break;
+    case 'trojan':
+      result['sni'] = sniDomain;
+      break;
+    case 'hysteria2':
+    case 'tuic':
+    case 'anytls':
+    case 'shadowquic':
+      result['sni'] = sniDomain;
+      break;
+    default:
+      // No SNI field for plaintext protocols such as Shadowsocks.
+      break;
   }
-
-  // Enable UDP over TCP for protocols that support it
-  if (type == 'vless' || type == 'vmess') {
-    result['network'] = proxy['network'] ?? 'tcp';
-  }
-
-  // Enable packet fragmentation for some protocols
-  if (type == 'vless' || type == 'trojan') {
-    result['smux'] = {
-      'enabled': true,
-      'protocol': 'h2',
-      'max-connections': 4,
-    };
-  }
-
   return result;
 }
 
@@ -195,7 +203,9 @@ Map<String, dynamic> applyCoreOptions(
   cfg['find-process-mode'] = 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
-  // Advanced SNI Spoofing with DPI bypass methods for Russian mobile operators
+  // Only change supported per-proxy SNI fields. The old implementation also
+  // injected a top-level "tls" map (not a Mihomo core option) and unrelated
+  // smux/network options, which could make Android config validation fail.
   if (o.sniSpoofing) {
     final proxies = cfg['proxies'];
     if (proxies is List) {
@@ -204,31 +214,12 @@ Map<String, dynamic> applyCoreOptions(
         for (final proxy in proxies)
           if (proxy is Map)
             _applyDpiBypassToProxy(
-              Map<String, dynamic>.from(proxy),
+              proxy,
               _sniWhitelistDomains[domainIndex++ % _sniWhitelistDomains.length],
             )
           else
             proxy,
       ];
-
-      // Enable additional bypass features in mihomo config
-      cfg['sniffer'] = {
-        'enable': true,
-        'sniff': {
-          'TLS': true,
-          'HTTP': true,
-          'QUIC': true,
-        },
-        'force-domain': _sniWhitelistDomains,
-        'skip-domain': ['+.apple.com', '+.icloud.com'],
-      };
-
-      // Enable TLS fingerprint bypass
-      cfg['tls'] = {
-        'enable': true,
-        'fingerprint': 'chrome',
-        'server-name': _sniWhitelistDomains[0],
-      };
     }
   }
 
