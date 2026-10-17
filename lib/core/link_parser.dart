@@ -560,6 +560,7 @@ Map<String, dynamic>? _parseHyl(String link) {
   };
   _putNonEmpty(p, 'sni', q['sni']);
   _putNonEmpty(p, 'ca', q['ca']);
+  _putNonEmpty(p, 'pin', q['pin']);
   p['insecure'] = _truthy(q['insecure']);
   return p;
 }
