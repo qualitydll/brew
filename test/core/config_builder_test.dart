@@ -196,4 +196,30 @@ rules:
     });
   });
 
+
+  test('SNI spoofing is disabled by default and preserves original SNI', () {
+    const original = <String, dynamic>{
+      'proxies': [
+        {'name': 'TLS server', 'type': 'trojan', 'server': 'node.example', 'servername': 'real.example'},
+      ],
+    };
+    final config = applyCoreOptions(
+      original,
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+      ),
+    );
+
+    expect(config['proxies'], original['proxies']);
+    expect(
+      ((config['proxies'] as List).single as Map)['servername'],
+      'real.example',
+    );
+  });
+
 }
