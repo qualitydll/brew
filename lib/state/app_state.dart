@@ -159,6 +159,9 @@ class AppState extends ChangeNotifier {
   Future<void> addDomainRule(String rule) async {
     if (!settings.domainRules.contains(rule)) {
       settings.domainRules = [...settings.domainRules, rule];
+      // Mihomo ignores domain rules in global mode. Switch back to rule mode
+      // when a user explicitly adds a per-domain route so the rule can work.
+      if (settings.mode != 'rule') settings.mode = 'rule';
       notifyListeners();
       if (isConnected) await reconnect();
     }
