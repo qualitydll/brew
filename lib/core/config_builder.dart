@@ -28,9 +28,8 @@ class CoreOptions {
   final bool externalTun;
   final List<String> userRules;
 
-  /// When true, overrides the SNI field of every proxy with a domain from the
-  /// Russian mobile-internet whitelist so that the TLS ClientHello passes
-  /// the operator's allowlist check.
+  /// Legacy preference retained for compatibility. It is intentionally ignored:
+  /// replacing the provider's SNI with an unrelated domain breaks many servers.
   final bool sniSpoofing;
 }
 
