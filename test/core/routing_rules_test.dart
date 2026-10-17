@@ -64,4 +64,16 @@ rules:
       containsAll(['Secure', 'DIRECT', 'REJECT']),
     );
   });
+  test('max.ru direct rule includes subdomains', () {
+    expect(
+      normalizeDomainRule(
+        'max.ru',
+        includeSubdomains: true,
+        action: 'DIRECT',
+        allowedActions: const ['DIRECT', 'REJECT'],
+      ),
+      'DOMAIN-SUFFIX,max.ru,DIRECT',
+    );
+  });
+
 }
