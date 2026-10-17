@@ -29,9 +29,9 @@ class ProfilesPage extends StatelessWidget {
           child: state.profiles.isEmpty
               ? const _Empty()
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(32, 4, 32, 32),
+                  padding: EdgeInsets.fromLTRB(MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 4, MediaQuery.sizeOf(context).width < 600 ? 16 : 24, 20),
                   itemCount: state.profiles.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, i) => StaggeredEntrance(
                     key: ValueKey(state.profiles[i].id),
                     index: i,
