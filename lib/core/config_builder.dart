@@ -260,7 +260,10 @@ Map<String, dynamic> applyCoreOptions(
     // when the provider explicitly disabled DNS) are otherwise retained.
     final existingDns = cfg['dns'];
     final dns = existingDns is Map
-        ? existingDns.cast<String, dynamic>()
+        ? <String, dynamic>{
+            for (final entry in existingDns.entries)
+              if (entry.key is String) entry.key as String: entry.value,
+          }
         : <String, dynamic>{};
     final mergedDns = <String, dynamic>{
       'enable': true,
