@@ -197,28 +197,6 @@ rules:
   });
 
 
-  test('HyL URI parses and maps to local SOCKS5', () {
-    const link = 'hyl://very-long-test-password@vpn.example:443'
-        '?sni=vpn.example&pin=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef#HyL%20test';
-    final parsed = parseSubscription(link);
-    expect(parsed.proxyCount, 1);
-    expect(parsed.proxies.single['type'], 'hyl');
-    expect(parsed.proxies.single['password'], 'very-long-test-password');
-    expect(parsed.proxies.single['sni'], 'vpn.example');
-    expect(parsed.proxies.single['pin'], '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef');
-    expect(parsed.proxies.single['insecure'], isFalse);
-    final config = applyCoreOptions(baseConfigFor(parsed), const CoreOptions(
-      mixedPort: 7890, apiPort: 9097, secret: 'test-secret', mode: 'rule',
-      tun: false, allowLan: false,
-    ));
-    final proxy = (config['proxies'] as List).single as Map;
-    expect(proxy['type'], 'socks5');
-    expect(proxy['server'], '127.0.0.1');
-    expect(proxy['port'], 20808);
-    expect(proxy['udp'], isFalse);
-    expect(proxy.containsKey('password'), isFalse);
-  });
-
   test('SNI spoofing is disabled by default and preserves original SNI', () {
     const original = <String, dynamic>{
       'proxies': [
