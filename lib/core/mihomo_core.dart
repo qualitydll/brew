@@ -75,10 +75,13 @@ class MihomoCore {
         const Duration(seconds: 8),
         onTimeout: () => ProcessResult(-1, -1, '', 'Timed out running mihomo -v'),
       );
-      final versionOutput = '${version.stdout}\n${version.stderr}'.trim();
+      final versionOutput = '${version.stdout}\\n${version.stderr}'.trim();
+      final versionSummary = version.exitCode == 0
+          ? 'Сам бинарный файл запускается: ${versionOutput.isEmpty ? "версия не выведена" : versionOutput.split("\\n").first}. '
+          : 'Даже команда mihomo -v не прошла (код ${version.exitCode}); проверьте целостность и совместимость файла ядра. ';
       return 'mihomo.exe аварийно завершился с кодом 0xC0000005 '
           '(нарушение доступа) во время проверки конфигурации. '
-          '${version.exitCode == 0 ? "Сам бинарный файл запускается: ${versionOutput.isEmpty ? "версия не выведена" : versionOutput.split("\\n").first}. " : "Даже команда mihomo -v не прошла (код ${version.exitCode}); проверьте целостность и совместимость файла ядра. "}'
+          '$versionSummary'
           'Это не обычная ошибка YAML и не доказывает блокировку Defender. '
           'Проверьте, что используется официальный x64 mihomo.exe и повторите '
           'проверку с тем же конфигом на свежем ядре.';
