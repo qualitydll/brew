@@ -29,6 +29,28 @@ jobs:
           python scripts/generate_brand_assets.py
 
 
+      - name: Setup Go for HyL sidecar
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+
+      - name: Build HyL Windows client
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $source = Join-Path $env:RUNNER_TEMP "hyl-source"
+          git clone --depth 1 https://github.com/qualitydll/hyl.git $source
+          Push-Location $source
+          try {
+            go build -trimpath -ldflags="-s -w" -o (Join-Path $env:RUNNER_TEMP "hyl.exe") ./cmd/hyl-client
+          } finally {
+            Pop-Location
+          }
+          if (!(Test-Path (Join-Path $env:RUNNER_TEMP "hyl.exe"))) {
+            throw "HyL client build did not produce hyl.exe."
+          }
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -59,6 +81,14 @@ jobs:
           $target = Join-Path $release "core"
           New-Item -ItemType Directory -Force -Path $target | Out-Null
           Copy-Item $binary.FullName (Join-Path $target "mihomo.exe") -Force
+          Copy-Item (Join-Path $env:RUNNER_TEMP "hyl.exe") (Join-Path $target "hyl.exe") -Force
+          if (!(Test-Path (Join-Path $target "hyl.exe"))) {
+            throw "HyL client was not bundled next to Mihomo."
+          }
+          & (Join-Path $target "hyl.exe") version
+          if ($LASTEXITCODE -ne 0) {
+            throw "Bundled HyL client failed to start."
+          }
           & (Join-Path $target "mihomo.exe") -v
           if ($LASTEXITCODE -ne 0) {
             throw "Bundled Mihomo core failed to start."
