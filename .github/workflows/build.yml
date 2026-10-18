@@ -43,6 +43,7 @@ jobs:
           git clone --depth 1 https://github.com/qualitydll/hyl.git $source
           Push-Location $source
           try {
+            go mod tidy
             go build -trimpath -ldflags="-s -w" -o (Join-Path $env:RUNNER_TEMP "hyl.exe") ./cmd/hyl-client
           } finally {
             Pop-Location
