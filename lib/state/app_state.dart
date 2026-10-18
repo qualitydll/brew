@@ -113,6 +113,8 @@ class AppState extends ChangeNotifier {
   Timer? _connectionsTimer;
   bool _refreshingConnections = false;
   String? _androidSessionId;
+  final List<Process> _hylProcesses = [];
+  final List<File> _hylConfigFiles = [];
 
   String _serverKey(String name) =>
       '${activeProfile?.id ?? 'default'}::$name';
@@ -490,6 +492,15 @@ class AppState extends ChangeNotifier {
     try {
       final content = await _profileFile(profile.id).readAsString();
       final parsed = parseSubscription(content);
+      if (parsed.proxies.any((proxy) => proxy['_hyl'] is Map)) {
+        if (!Platform.isWindows) {
+          throw UnsupportedError(
+            'HyL пока поддерживается только в Windows-сборке Brew. '
+            'Android требует отдельной нативной интеграции; подключение не запускалось.',
+          );
+        }
+        await _startHylClients(parsed.proxies);
+      }
       final config = applyCoreOptions(baseConfigFor(parsed), _options);
       final rawProxies = config['proxies'];
       proxyConfigs = {
@@ -540,6 +551,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       Object connectionError = e;
+      await _stopHylClients();
       if (androidServiceStarted) {
         try {
           await androidVpn.stop(sessionId: androidSessionId!);
@@ -566,6 +578,87 @@ class AppState extends ChangeNotifier {
       error = connectionError.toString();
       logs.add(LogEntry('error', connectionError.toString()));
       notifyListeners();
+    }
+  }
+
+  /// Launches one HyL SOCKS5 sidecar for each hyl:// node on Windows.
+  /// HyL currently carries TCP only; it is not a full-device UDP/TUN engine.
+  Future<void> _startHylClients(List<Map<String, dynamic>> proxies) async {
+    await _stopHylClients();
+    final binary = p.join(p.dirname(corePath!), 'hyl.exe');
+    if (!await File(binary).exists()) {
+      throw StateError('Не найден HyL-клиент: ' + binary + '. Пересоберите Brew через GitHub Actions.');
+    }
+    final hylNodes = proxies.where((proxy) => proxy['_hyl'] is Map).toList();
+    var port = 10808;
+    for (final proxy in hylNodes) {
+      final options = Map<String, dynamic>.from(proxy['_hyl'] as Map);
+      final config = <String, dynamic>{
+        'server': options['server'],
+        'auth': {'password': options['password']},
+        'tls': {
+          'sni': options['sni'],
+          'insecure': false,
+          if (options['pin_sha256'] != null) 'pin_sha256': options['pin_sha256'],
+        },
+        'local_socks': '127.0.0.1:' + port.toString(),
+        'mobile': {'keepalive_interval': '25s'},
+      };
+      final configDir = Directory(p.join(dataDir, 'hyl'));
+      await configDir.create(recursive: true);
+      final configFile = File(p.join(configDir.path, 'client-' + port.toString() + '.yaml'));
+      // JSON is a valid YAML subset and safely quotes URI credentials.
+      await configFile.writeAsString(const JsonEncoder.withIndent('  ').convert(config));
+      _hylConfigFiles.add(configFile);
+      final process = await Process.start(binary, ['start', '--config', configFile.path],
+          workingDirectory: p.dirname(binary), runInShell: false);
+      _hylProcesses.add(process);
+      process.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(
+        (line) => logs.add(LogEntry('info', '[HyL] ' + line)),
+      );
+      process.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(
+        (line) => logs.add(LogEntry('warning', '[HyL] ' + line)),
+      );
+      unawaited(process.exitCode.then((code) {
+        if (_hylProcesses.contains(process) && status == ConnStatus.connected) {
+          logs.add(LogEntry('error', 'HyL завершился с кодом ' + code.toString()));
+        }
+      }));
+      proxy['port'] = port;
+      await _waitForHylSocks(port, process);
+      port++;
+    }
+  }
+
+  Future<void> _waitForHylSocks(int port, Process process) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 12));
+    while (DateTime.now().isBefore(deadline)) {
+      if (!_hylProcesses.contains(process)) {
+        throw StateError('HyL-клиент остановлен до запуска SOCKS5.');
+      }
+      try {
+        final socket = await Socket.connect('127.0.0.1', port,
+            timeout: const Duration(milliseconds: 250));
+        socket.destroy();
+        return;
+      } catch (_) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+    }
+    throw StateError('HyL не открыл локальный SOCKS5-порт ' + port.toString() + ' за 12 секунд. Проверьте адрес, пароль и pin сервера.');
+  }
+
+  Future<void> _stopHylClients() async {
+    final processes = List<Process>.from(_hylProcesses);
+    _hylProcesses.clear();
+    for (final process in processes) {
+      process.kill();
+      try { await process.exitCode.timeout(const Duration(seconds: 2)); } catch (_) {}
+    }
+    final configs = List<File>.from(_hylConfigFiles);
+    _hylConfigFiles.clear();
+    for (final file in configs) {
+      try { await file.delete(); } catch (_) {}
     }
   }
 
