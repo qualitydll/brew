@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../state/app_state.dart';
 import '../../state/models.dart';
 import '../widgets/common.dart';
+import 'qr_scan_page.dart';
 
 class ProfilesPage extends StatelessWidget {
   const ProfilesPage({super.key});
@@ -270,13 +273,40 @@ Future<String?> _prompt(BuildContext context, String title, String initial) {
   );
 }
 
-Future<void> showAddProfileDialog(BuildContext context) {
+/// Entry point for the "Добавить" button. On Android, asks whether the user
+/// wants to scan a QR code or paste a link/key first; everywhere else there
+/// is no camera to scan with, so it opens the paste dialog directly.
+Future<void> showAddProfileDialog(BuildContext context) async {
+  if (!Platform.isAndroid) {
+    await _showAddDialog(context);
+    return;
+  }
+  final method = await showModalBottomSheet<_AddMethod>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => const _AddMethodSheet(),
+  );
+  if (method == null || !context.mounted) return;
+
+  if (method == _AddMethod.link) {
+    await _showAddDialog(context);
+    return;
+  }
+
+  final scanned = await Navigator.of(
+    context,
+  ).push<String>(MaterialPageRoute(builder: (_) => const QrScanPage()));
+  if (scanned == null || !context.mounted) return;
+  await _showAddDialog(context, initialInput: scanned);
+}
+
+Future<void> _showAddDialog(BuildContext context, {String? initialInput}) {
   return showGeneralDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'add',
     transitionDuration: const Duration(milliseconds: 420),
-    pageBuilder: (context, _, _) => const _AddDialog(),
+    pageBuilder: (context, _, _) => _AddDialog(initialInput: initialInput),
     transitionBuilder: (context, anim, _, child) {
       final curve = CurvedAnimation(
         parent: anim,
@@ -294,15 +324,68 @@ Future<void> showAddProfileDialog(BuildContext context) {
   );
 }
 
+enum _AddMethod { qr, link }
+
+class _AddMethodSheet extends StatelessWidget {
+  const _AddMethodSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+            child: Text(
+              'Как добавить подписку?',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: scheme.primaryContainer,
+              foregroundColor: scheme.onPrimaryContainer,
+              child: const Icon(Icons.qr_code_scanner_rounded),
+            ),
+            title: const Text('Сканировать QR-код'),
+            subtitle: const Text('Камерой — код от вашего VPN-провайдера'),
+            onTap: () => Navigator.pop(context, _AddMethod.qr),
+          ),
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: scheme.secondaryContainer,
+              foregroundColor: scheme.onSecondaryContainer,
+              child: const Icon(Icons.link_rounded),
+            ),
+            title: const Text('Вставить ссылку или ключ'),
+            subtitle: const Text(
+              'Подписка, vless / vmess / trojan / ss / hy2 / tuic',
+            ),
+            onTap: () => Navigator.pop(context, _AddMethod.link),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
 class _AddDialog extends StatefulWidget {
-  const _AddDialog();
+  const _AddDialog({this.initialInput});
+
+  /// Text scanned from a QR code, pre-filled so the user can review it
+  /// before adding the subscription.
+  final String? initialInput;
 
   @override
   State<_AddDialog> createState() => _AddDialogState();
 }
 
 class _AddDialogState extends State<_AddDialog> {
-  final _input = TextEditingController();
+  late final _input = TextEditingController(text: widget.initialInput ?? '');
   final _name = TextEditingController();
   String? _error;
   bool _busy = false;
