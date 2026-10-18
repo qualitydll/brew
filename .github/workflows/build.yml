@@ -61,6 +61,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # pubspec declares the Android ARM64 HyL binary as a Flutter asset.
+      # This job builds Windows only, so create a harmless placeholder; the
+      # Android job replaces the same path with the real cross-compiled binary.
+      - name: Prepare Android-only HyL asset for Windows build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $asset = "assets/bin/hyl-client-android-arm64"
+          New-Item -ItemType Directory -Force -Path (Split-Path $asset) | Out-Null
+          Set-Content -Path $asset -Value "Android-only asset; not executable on Windows." -NoNewline
+          if (!(Test-Path $asset)) {
+            throw "Could not prepare the Android-only HyL Flutter asset for the Windows build."
+          }
+
       - name: Build Windows executable
         run: flutter build windows --release
 
