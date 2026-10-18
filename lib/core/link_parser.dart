@@ -201,6 +201,14 @@ Map<String, dynamic>? _parseHyL(String link) {
   };
 }
 
+String _fragment(Uri uri) {
+  try {
+    return Uri.decodeComponent(uri.fragment);
+  } catch (_) {
+    return uri.fragment;
+  }
+}
+
 bool _truthy(String? v) => v == '1' || v == 'true';
 
 List<String>? _alpn(String? v) {
