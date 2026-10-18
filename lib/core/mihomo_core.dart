@@ -75,9 +75,12 @@ class MihomoCore {
         const Duration(seconds: 8),
         onTimeout: () => ProcessResult(-1, -1, '', 'Timed out running mihomo -v'),
       );
-      final versionOutput = '${version.stdout}\\n${version.stderr}'.trim();
+      final versionOutput = '${version.stdout}\n${version.stderr}'.trim();
+      final versionLine = versionOutput.isEmpty
+          ? 'версия не выведена'
+          : versionOutput.split('\n').first;
       final versionSummary = version.exitCode == 0
-          ? 'Сам бинарный файл запускается: ${versionOutput.isEmpty ? "версия не выведена" : versionOutput.split("\\n").first}. '
+          ? 'Сам бинарный файл запускается: $versionLine. '
           : 'Даже команда mihomo -v не прошла (код ${version.exitCode}); проверьте целостность и совместимость файла ядра. ';
       return 'mihomo.exe аварийно завершился с кодом 0xC0000005 '
           '(нарушение доступа) во время проверки конфигурации. '
