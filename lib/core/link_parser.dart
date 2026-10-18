@@ -173,7 +173,7 @@ Map<String, dynamic>? _parseHyL(String link) {
   if (uri.host.isEmpty || !uri.hasPort || uri.port < 1 || uri.port > 65535 || uri.userInfo.isEmpty) return null;
   final password = Uri.decodeComponent(uri.userInfo);
   if (password.isEmpty) return null;
-  final pin = uri.queryParameters['pin']?.replaceAll(RegExp(r'[:\\-]'), '').toLowerCase();
+  final pin = uri.queryParameters['pin']?.replaceAll(':', '').replaceAll('-', '').toLowerCase();
   if (pin != null && !RegExp(r'^[0-9a-f]{64}
   try {
     return Uri.decodeComponent(uri.fragment);
