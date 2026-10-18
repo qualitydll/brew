@@ -170,16 +170,35 @@ Map<String, dynamic>? parseLink(String link) {
 /// Mihomo outbound. Keep its connection details private to Brew's launcher.
 Map<String, dynamic>? _parseHyL(String link) {
   final uri = Uri.parse(link);
-  if (uri.host.isEmpty || !uri.hasPort || uri.port < 1 || uri.port > 65535 || uri.userInfo.isEmpty) return null;
+  if (uri.host.isEmpty ||
+      !uri.hasPort ||
+      uri.port < 1 ||
+      uri.port > 65535 ||
+      uri.userInfo.isEmpty) {
+    return null;
+  }
   final password = Uri.decodeComponent(uri.userInfo);
   if (password.isEmpty) return null;
-  final pin = uri.queryParameters['pin']?.replaceAll(':', '').replaceAll('-', '').toLowerCase();
-  if (pin != null && !RegExp(r'^[0-9a-f]{64}
-  try {
-    return Uri.decodeComponent(uri.fragment);
-  } catch (_) {
-    return uri.fragment;
-  }
+  final pin = uri.queryParameters['pin']
+      ?.replaceAll(':', '')
+      .replaceAll('-', '')
+      .toLowerCase();
+  if (pin != null && !RegExp(r'^[0-9a-f]{64}$').hasMatch(pin)) return null;
+  final name = _fragment(uri);
+  final displayHost = uri.host.contains(':') ? '[' + uri.host + ']' : uri.host;
+  return <String, dynamic>{
+    'name': name.isEmpty ? 'HyL ' + uri.host : name,
+    'type': 'socks5',
+    'server': '127.0.0.1',
+    'port': 10808,
+    'udp': false,
+    '_hyl': <String, dynamic>{
+      'server': displayHost + ':' + uri.port.toString(),
+      'password': password,
+      'sni': uri.queryParameters['sni'] ?? uri.host,
+      if (pin != null) 'pin_sha256': pin,
+    },
+  };
 }
 
 bool _truthy(String? v) => v == '1' || v == 'true';
