@@ -162,6 +162,7 @@ jobs:
           git clone --depth 1 https://github.com/qualitydll/hyl.git "$source_dir"
           mkdir -p assets/bin
           cd "$source_dir"
+          go mod tidy
           GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$GITHUB_WORKSPACE/assets/bin/hyl-client-android-arm64" ./cmd/hyl-client
           test -s "$GITHUB_WORKSPACE/assets/bin/hyl-client-android-arm64"
           file "$GITHUB_WORKSPACE/assets/bin/hyl-client-android-arm64"
