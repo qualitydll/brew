@@ -66,6 +66,24 @@ class MihomoCore {
     ]);
     if (res.exitCode == 0) return null;
     final out = '${res.stdout}\n${res.stderr}'.trim();
+
+    // 0xC0000005 is STATUS_ACCESS_VIOLATION. This is a native process crash,
+    // not a normal configuration rejection, and by itself does not prove that
+    // Defender or SmartScreen blocked the binary.
+    if (Platform.isWindows && res.exitCode == -1073741819) {
+      final version = await Process.run(binary, ['-v']).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => ProcessResult(-1, -1, '', 'Timed out running mihomo -v'),
+      );
+      final versionOutput = '${version.stdout}\n${version.stderr}'.trim();
+      return 'mihomo.exe аварийно завершился с кодом 0xC0000005 '
+          '(нарушение доступа) во время проверки конфигурации. '
+          '${version.exitCode == 0 ? "Сам бинарный файл запускается: ${versionOutput.isEmpty ? "версия не выведена" : versionOutput.split("\\n").first}. " : "Даже команда mihomo -v не прошла (код ${version.exitCode}); проверьте целостность и совместимость файла ядра. "}'
+          'Это не обычная ошибка YAML и не доказывает блокировку Defender. '
+          'Проверьте, что используется официальный x64 mihomo.exe и повторите '
+          'проверку с тем же конфигом на свежем ядре.';
+    }
+
     final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
@@ -77,10 +95,10 @@ class MihomoCore {
     if (msgs.isNotEmpty) return msgs.last;
     if (out.isNotEmpty) return out;
     return 'Mihomo завершил проверку с кодом ${res.exitCode}, но не вывел причину. '
-        'Частая причина на Windows — антивирус или Defender SmartScreen тихо '
-        'блокирует запуск неподписанного mihomo.exe. Добавьте файл ядра '
-        'в исключения антивируса или скачайте его заново (архив мог '
-        'повредиться при распаковке).';
+        'Проверьте вывод команды mihomo -v, путь и целостность файла ядра, '
+        'а также запустите проверку конфигурации вручную, чтобы увидеть '
+        'полный вывод процесса. Не добавляйте файл в исключения антивируса, '
+        'пока не проверите его происхождение.';
   }
 
   Future<void> start({
