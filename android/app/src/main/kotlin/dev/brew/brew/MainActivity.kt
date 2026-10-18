@@ -17,6 +17,8 @@ import java.util.UUID
 
 class MainActivity : FlutterActivity() {
     private var permissionResult: MethodChannel.Result? = null
+    private val hylProcesses = mutableMapOf<Int, Process>()
+    private var hylBinary: java.io.File? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -36,6 +38,12 @@ class MainActivity : FlutterActivity() {
                         result,
                     )
                     "stopVpn" -> stopVpn(call.argument("sessionId"), result)
+                    "startHyl" -> startHyl(
+                        call.argument("configPath"),
+                        call.argument("port"),
+                        result,
+                    )
+                    "stopHyl" -> stopHyl(result)
                     else -> result.notImplemented()
                 }
             }
@@ -184,6 +192,63 @@ class MainActivity : FlutterActivity() {
             startService(intent)
         } catch (error: Exception) {
             result.error("vpn_stop_failed", error.message, null)
+        }
+    }
+
+    private fun startHyl(configPath: String?, port: Int?, result: MethodChannel.Result) {
+        if (configPath.isNullOrBlank() || port == null || port < 1 || port > 65535) {
+            result.error("hyl_invalid_args", "HyL config path and valid local port are required.", null)
+            return
+        }
+        try {
+            val existing = hylProcesses[port]
+            if (existing != null && existing.isAlive) {
+                result.error("hyl_already_running", "HyL is already running on port $port.", null)
+                return
+            }
+            val binary = hylBinary ?: run {
+                val target = java.io.File(filesDir, "hyl-client")
+                assets.open("flutter_assets/assets/bin/hyl-client-android-arm64").use { input ->
+                    java.io.FileOutputStream(target).use { output -> input.copyTo(output) }
+                }
+                if (!target.setExecutable(true, true) || !target.canExecute()) {
+                    throw java.io.IOException("Could not mark the bundled HyL client executable.")
+                }
+                hylBinary = target
+                target
+            }
+            val process = ProcessBuilder(binary.absolutePath, "start", "--config", configPath)
+                .directory(filesDir)
+                .redirectErrorStream(true)
+                .start()
+            hylProcesses[port] = process
+            Thread({
+                try {
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { android.util.Log.i("Brew-HyL", it) }
+                    }
+                } catch (error: Exception) {
+                    android.util.Log.w("Brew-HyL", "Log stream ended", error)
+                }
+            }, "brew-hyl-log-$port").apply { isDaemon = true; start() }
+            result.success(null)
+        } catch (error: Throwable) {
+            result.error("hyl_start_failed", error.message ?: "Could not start HyL client.", null)
+        }
+    }
+
+    private fun stopHyl(result: MethodChannel.Result) {
+        try {
+            hylProcesses.values.forEach { process ->
+                process.destroy()
+                if (process.isAlive && !process.waitFor(1500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    process.destroyForcibly()
+                }
+            }
+            hylProcesses.clear()
+            result.success(null)
+        } catch (error: Throwable) {
+            result.error("hyl_stop_failed", error.message ?: "Could not stop HyL client.", null)
         }
     }
 
