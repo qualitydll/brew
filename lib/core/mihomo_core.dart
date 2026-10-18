@@ -65,7 +65,7 @@ class MihomoCore {
       configPath,
     ]);
     if (res.exitCode == 0) return null;
-    final out = '${res.stdout}\\n${res.stderr}'.trim();
+    final out = '${res.stdout}\n${res.stderr}'.trim();
     final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
@@ -77,7 +77,10 @@ class MihomoCore {
     if (msgs.isNotEmpty) return msgs.last;
     if (out.isNotEmpty) return out;
     return 'Mihomo завершил проверку с кодом ${res.exitCode}, но не вывел причину. '
-        'Проверьте журнал приложения и файл конфигурации.';
+        'Частая причина на Windows — антивирус или Defender SmartScreen тихо '
+        'блокирует запуск неподписанного mihomo.exe. Добавьте файл ядра '
+        'в исключения антивируса или скачайте его заново (архив мог '
+        'повредиться при распаковке).';
   }
 
   Future<void> start({

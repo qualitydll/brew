@@ -230,7 +230,7 @@ class _AndroidBootstrapState extends State<_AndroidBootstrap> {
       if (!mounted) return;
       setState(() => _ready = true);
     } catch (error, stack) {
-      debugPrint('Brew Android startup failed: $error\\n$stack');
+      debugPrint('Brew Android startup failed: $error\n$stack');
       if (!mounted) return;
       setState(() => _error = error);
     }
