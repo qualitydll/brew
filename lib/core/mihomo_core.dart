@@ -32,19 +32,46 @@ class MihomoCore {
       // Also check current directory for development
       p.join(Directory.current.path, 'core', binaryName),
     ];
+    // A path existing on disk does not mean the native executable is usable.
+    // On Windows, a stale custom path can point at a broken/unsupported
+    // mihomo.exe that crashes even for "-v". Probe each candidate and fall
+    // back to the next one (notably the bundled core) instead of selecting it
+    // solely because the file exists.
     for (final c in candidates) {
-      if (await File(c).exists()) return c;
+      if (!await File(c).exists()) continue;
+      try {
+        final probe = await Process.run(c, ['-v']).timeout(
+          const Duration(seconds: 6),
+          onTimeout: () => ProcessResult(-1, -1, '', 'version probe timed out'),
+        );
+        if (probe.exitCode == 0) return c;
+      } catch (_) {
+        // Continue to the next candidate if the executable cannot start.
+      }
     }
     try {
       final res = await Process.run(Platform.isWindows ? 'where' : 'which', [
         'mihomo',
-      ]);
+      ]).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => ProcessResult(-1, -1, '', 'path lookup timed out'),
+      );
       if (res.exitCode == 0) {
-        final first = (res.stdout as String)
+        for (final candidate in (res.stdout as String)
             .split(RegExp(r'[\r\n]+'))
-            .first
-            .trim();
-        if (first.isNotEmpty) return first;
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)) {
+          try {
+            final probe = await Process.run(candidate, ['-v']).timeout(
+              const Duration(seconds: 6),
+              onTimeout: () =>
+                  ProcessResult(-1, -1, '', 'version probe timed out'),
+            );
+            if (probe.exitCode == 0) return candidate;
+          } catch (_) {
+            // Ignore unusable PATH entries and keep looking.
+          }
+        }
       }
     } catch (_) {}
     return null;
@@ -66,6 +93,30 @@ class MihomoCore {
     ]);
     if (res.exitCode == 0) return null;
     final out = '${res.stdout}\n${res.stderr}'.trim();
+
+    // 0xC0000005 is STATUS_ACCESS_VIOLATION. This is a native process crash,
+    // not a normal configuration rejection, and by itself does not prove that
+    // Defender or SmartScreen blocked the binary.
+    if (Platform.isWindows && res.exitCode == -1073741819) {
+      final version = await Process.run(binary, ['-v']).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => ProcessResult(-1, -1, '', 'Timed out running mihomo -v'),
+      );
+      final versionOutput = '${version.stdout}\n${version.stderr}'.trim();
+      final versionLine = versionOutput.isEmpty
+          ? 'версия не выведена'
+          : versionOutput.split('\n').first;
+      final versionSummary = version.exitCode == 0
+          ? 'Сам бинарный файл запускается: $versionLine. '
+          : 'Даже команда mihomo -v не прошла (код ${version.exitCode}); проверьте целостность и совместимость файла ядра. ';
+      return 'mihomo.exe аварийно завершился с кодом 0xC0000005 '
+          '(нарушение доступа) во время проверки конфигурации. '
+          '$versionSummary'
+          'Это не обычная ошибка YAML и не доказывает блокировку Defender. '
+          'Проверьте, что используется официальный x64 mihomo.exe и повторите '
+          'проверку с тем же конфигом на свежем ядре.';
+    }
+
     final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
@@ -77,10 +128,10 @@ class MihomoCore {
     if (msgs.isNotEmpty) return msgs.last;
     if (out.isNotEmpty) return out;
     return 'Mihomo завершил проверку с кодом ${res.exitCode}, но не вывел причину. '
-        'Частая причина на Windows — антивирус или Defender SmartScreen тихо '
-        'блокирует запуск неподписанного mihomo.exe. Добавьте файл ядра '
-        'в исключения антивируса или скачайте его заново (архив мог '
-        'повредиться при распаковке).';
+        'Проверьте вывод команды mihomo -v, путь и целостность файла ядра, '
+        'а также запустите проверку конфигурации вручную, чтобы увидеть '
+        'полный вывод процесса. Не добавляйте файл в исключения антивируса, '
+        'пока не проверите его происхождение.';
   }
 
   Future<void> start({

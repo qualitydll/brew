@@ -61,6 +61,12 @@ const _sniWhitelistDomains = [
   'wildberries.ru',
   'avito.ru',
   'lamoda.ru',
+  // Additional commonly used Russian services; these are candidates only,
+  // not a guarantee that a given proxy endpoint accepts their TLS SNI.
+  'rutube.ru',
+  'dzen.ru',
+  'max.ru',
+  'kinopoisk.ru',
 ];
 
 /// Apply SNI override only to outbound types with a supported SNI field.
@@ -117,8 +123,17 @@ const _privateRules = [
 /// Builds a minimal but complete config around a list of share-link proxies.
 Map<String, dynamic> configFromProxies(List<Map<String, dynamic>> proxies) {
   final names = [for (final p in proxies) p['name'] as String];
+  // HyL metadata is consumed by AppState to launch its sidecar and must never
+  // be passed through to Mihomo as an unknown SOCKS5 option.
+  final mihomoProxies = [
+    for (final proxy in proxies)
+      <String, dynamic>{
+        for (final entry in proxy.entries)
+          if (!entry.key.startsWith('_')) entry.key: entry.value,
+      },
+  ];
   return {
-    'proxies': proxies,
+    'proxies': mihomoProxies,
     'proxy-groups': [
       {
         'name': kMainGroup,

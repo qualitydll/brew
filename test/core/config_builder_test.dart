@@ -3,6 +3,23 @@ import 'package:brew/core/link_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('HyL sidecar metadata is not passed to Mihomo', () {
+    final config = configFromProxies([
+      {
+        'name': 'HyL test',
+        'type': 'socks5',
+        'server': '127.0.0.1',
+        'port': 10808,
+        'udp': false,
+        '_hyl': {'server': 'vpn.example:443', 'password': 'secret'},
+      },
+    ]);
+
+    final proxy = (config['proxies'] as List).single as Map;
+    expect(proxy['type'], 'socks5');
+    expect(proxy.containsKey('_hyl'), isFalse);
+  });
+
   test('Android external TUN keeps Mihomo TUN disabled and enables DNS', () {
     final config = applyCoreOptions(
       const <String, dynamic>{},

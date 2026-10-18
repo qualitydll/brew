@@ -50,4 +50,15 @@ class AndroidVpn {
     timeout: stopTimeout,
     description: 'Mihomo VPN service stop',
   );
+
+  Future<void> startHyl(String configPath, {required int port}) async {
+    await _channel.invokeMethod<void>('startHyl', {
+      'configPath': configPath,
+      'port': port,
+    });
+  }
+
+  Future<void> stopHyl() async {
+    await _channel.invokeMethod<void>('stopHyl');
+  }
 }
