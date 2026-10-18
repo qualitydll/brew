@@ -113,7 +113,6 @@ class AppState extends ChangeNotifier {
   Timer? _connectionsTimer;
   bool _refreshingConnections = false;
   String? _androidSessionId;
-  final List<Process> _hylProcesses = [];
 
   String _serverKey(String name) =>
       '${activeProfile?.id ?? 'default'}::$name';
@@ -491,13 +490,7 @@ class AppState extends ChangeNotifier {
     try {
       final content = await _profileFile(profile.id).readAsString();
       final parsed = parseSubscription(content);
-      final hylNodes = parsed.proxies.where((proxy) =>
-          proxy['type']?.toString().toLowerCase() == 'hyl').toList();
-      if (hylNodes.isNotEmpty && Platform.isAndroid) {
-        throw StateError('HyL пока доступен только в Windows-версии Brew: Android-движок HyL ещё не встроен.');
-      }
       final config = applyCoreOptions(baseConfigFor(parsed), _options);
-      await _startHylClients(hylNodes);
       final rawProxies = config['proxies'];
       proxyConfigs = {
         if (rawProxies is List)
@@ -505,12 +498,6 @@ class AppState extends ChangeNotifier {
             if (proxy is Map && proxy['name'] is String)
               proxy['name'] as String: Map<String, dynamic>.from(proxy),
       };
-      for (final proxy in hylNodes) {
-        final name = proxy['name']?.toString();
-        if (name != null && name.isNotEmpty) {
-          proxyConfigs[name] = Map<String, dynamic>.from(proxy);
-        }
-      }
       final configFile = await prepareMihomoConfigFile(dataDir);
       skipped = await _writeValidConfig(config, configFile);
       for (final s in skipped) {
@@ -552,7 +539,6 @@ class AppState extends ChangeNotifier {
       connectedAt = DateTime.now();
       notifyListeners();
     } catch (e) {
-      await _stopHylClients();
       Object connectionError = e;
       if (androidServiceStarted) {
         try {
@@ -673,91 +659,6 @@ class AppState extends ChangeNotifier {
         await core.stop();
       }
       await _stopHylClients();
-    }
-  }
-
-  Future<void> _startHylClients(List<Map<String, dynamic>> proxies) async {
-    if (proxies.isEmpty) return;
-    if (!Platform.isWindows) throw StateError('HyL sidecar currently supports Windows only.');
-    if (corePath == null) throw StateError('Mihomo core path is not available.');
-    final bundledClient = File(p.join(p.dirname(Platform.resolvedExecutable), 'core', 'hyl-client.exe'));
-    final localClient = File(p.join(p.dirname(corePath!), 'hyl-client.exe'));
-    final executable = await bundledClient.exists() ? bundledClient : localClient;
-    if (!await executable.exists()) {
-      throw StateError('Не найден hyl-client.exe рядом с Mihomo. Обновите Brew из свежей сборки.');
-    }
-    final directory = Directory(p.join(dataDir, 'hyl'));
-    await directory.create(recursive: true);
-    var index = 0;
-    try {
-      for (final proxy in proxies) {
-        final server = proxy['server']?.toString() ?? '';
-        final port = int.tryParse(proxy['port']?.toString() ?? '') ?? 443;
-        final password = proxy['password']?.toString() ?? '';
-        if (server.isEmpty || password.length < 16 || port < 1 || port > 65535) {
-          throw StateError('HyL-сервер имеет некорректный адрес или пароль короче 16 символов.');
-        }
-        final localPort = 20808 + index++;
-        final configFile = File(p.join(directory.path, 'client-$localPort.yaml'));
-        final sni = proxy['sni']?.toString() ?? '';
-        final ca = proxy['ca']?.toString() ?? '';
-        final pin = proxy['pin']?.toString() ?? '';
-        final insecure = proxy['insecure'] == true;
-        final yaml = 'server: ${jsonEncode('$server:$port')}\n'
-            'auth:\n  password: ${jsonEncode(password)}\n'
-            'tls:\n  sni: ${jsonEncode(sni)}\n'
-            '  insecure: $insecure\n'
-            '  ca: ${jsonEncode(ca)}\n'
-            '  pin_sha256: ${jsonEncode(pin)}\n'
-            'local_socks: ${jsonEncode('127.0.0.1:$localPort')}\n'
-            'mobile:\n  keepalive_interval: 25s\n';
-        await configFile.writeAsString(yaml, flush: true);
-        final process = await Process.start(executable.path,
-            ['start', '--config', configFile.path],
-            workingDirectory: directory.path, runInShell: false);
-        _hylProcesses.add(process);
-        process.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(
-          (line) => logs.add(LogEntry('info', '[HyL] $line')));
-        process.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(
-          (line) => logs.add(LogEntry('warning', '[HyL] $line')));
-        var ready = false;
-        for (var attempt = 0; attempt < 40; attempt++) {
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-          final exitCode = await process.exitCode.timeout(
-            const Duration(milliseconds: 1), onTimeout: () => -1);
-          if (exitCode != -1) {
-            throw StateError('HyL-клиент завершился с кодом $exitCode. Проверьте пароль, сертификат и доступность сервера.');
-          }
-          try {
-            final socket = await Socket.connect(InternetAddress.loopbackIPv4,
-                localPort, timeout: const Duration(milliseconds: 250));
-            socket.destroy();
-            ready = true;
-            break;
-          } on SocketException {
-            // Still waiting for TLS/QUIC handshake and local listener.
-          } on TimeoutException {
-            // Retry until the bounded startup deadline.
-          }
-        }
-        if (!ready) throw StateError('HyL-клиент не поднял SOCKS5-порт $localPort за 10 секунд.');
-      }
-    } catch (_) {
-      await _stopHylClients();
-      rethrow;
-    }
-  }
-
-  Future<void> _stopHylClients() async {
-    final processes = List<Process>.from(_hylProcesses);
-    _hylProcesses.clear();
-    for (final process in processes) {
-      try {
-        process.kill(ProcessSignal.sigterm);
-        await process.exitCode.timeout(const Duration(seconds: 2));
-      } catch (_) {
-        try { process.kill(ProcessSignal.sigkill); } catch (_) {}
-      }
     }
   }
 
