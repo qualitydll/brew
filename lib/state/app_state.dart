@@ -631,7 +631,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _waitForHylSocks(int port, Process process) async {
-    final deadline = DateTime.now().add(const Duration(seconds: 12));
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
     while (DateTime.now().isBefore(deadline)) {
       if (!_hylProcesses.contains(process)) {
         throw StateError('HyL-клиент остановлен до запуска SOCKS5.');
@@ -645,7 +645,7 @@ class AppState extends ChangeNotifier {
         await Future<void>.delayed(const Duration(milliseconds: 150));
       }
     }
-    throw StateError('HyL не открыл локальный SOCKS5-порт ' + port.toString() + ' за 12 секунд. Проверьте адрес, пароль и pin сервера.');
+    throw StateError('HyL не открыл локальный SOCKS5-порт ' + port.toString() + ' за 20 секунд. Проверьте адрес, пароль и pin сервера.');
   }
 
   Future<void> _stopHylClients() async {
