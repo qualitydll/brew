@@ -7,6 +7,9 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.VpnService
+import android.net.IpPrefix
+import java.net.Inet4Address
+import java.net.InetAddress
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
@@ -174,13 +177,22 @@ class MihomoVpnService : VpnService() {
 
         // Match FlClash's Android TUN setup: the system owns the TUN interface,
         // while Mihomo receives the detached descriptor through its mobile bridge.
-        val tun = Builder()
+        val hylBypassAddresses = resolveHyLServerAddresses()
+        val tunBuilder = Builder()
             .setSession(packageManager.getApplicationLabel(applicationInfo).toString())
             .setMtu(TUN_MTU)
             .setBlocking(false)
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     setMetered(false)
+                }
+                if (hylBypassAddresses.isNotEmpty()) {
+                    check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        "HyL on Android requires Android 13 or newer so its QUIC server route can bypass the VPN without creating a routing loop."
+                    }
+                    hylBypassAddresses.forEach { address ->
+                        excludeRoute(IpPrefix(address, if (address is Inet4Address) 32 else 128))
+                    }
                 }
             }
             .addAddress(IPV4_ADDRESS, 30)
@@ -189,7 +201,8 @@ class MihomoVpnService : VpnService() {
             .addAddress(IPV6_ADDRESS, 126)
             .addRoute("::", 0)
             .addDnsServer(IPV6_DNS)
-            .establish() ?: error("Android refused to establish the VPN interface.")
+        val tun = tunBuilder.establish()
+            ?: error("Android refused to establish the VPN interface.")
 
         val fd = tun.detachFd()
         synchronized(tunLock) {
@@ -210,6 +223,43 @@ class MihomoVpnService : VpnService() {
                 throw error
             }
         }
+    }
+
+    /**
+     * HyL currently runs as a sidecar process. Unlike libmihomo's sockets, its
+     * QUIC socket cannot call VpnService.protect() through Brew's native bridge.
+     * Exclude only the HyL server IPs from the VPN routes so the sidecar can
+     * reach its transport endpoint instead of feeding its own QUIC packets
+     * back into Mihomo (which would create a proxy loop).
+     */
+    private fun resolveHyLServerAddresses(): Set<InetAddress> {
+        val configDir = File(filesDir, "hyl")
+        if (!configDir.isDirectory) return emptySet()
+        val configFiles = configDir.listFiles { file ->
+            file.isFile && file.name.startsWith("client-") && file.name.endsWith(".yaml")
+        } ?: return emptySet()
+        val addresses = linkedSetOf<InetAddress>()
+        for (configFile in configFiles) {
+            val serverLine = configFile.readLines().firstOrNull {
+                it.trimStart().startsWith("server:")
+            } ?: continue
+            val server = serverLine.substringAfter(':').trim().trim('"', '\'')
+            val host = if (server.startsWith("[")) {
+                server.substringAfter('[').substringBefore(']')
+            } else {
+                server.substringBeforeLast(':', server)
+            }
+            check(host.isNotBlank()) { "HyL config has an empty server host: ${configFile.name}" }
+            try {
+                addresses.addAll(InetAddress.getAllByName(host))
+            } catch (error: Exception) {
+                throw IllegalStateException(
+                    "Could not resolve HyL server host '$host' before starting the VPN: ${error.message}",
+                    error,
+                )
+            }
+        }
+        return addresses
     }
 
     private fun startForegroundCompat() {
