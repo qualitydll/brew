@@ -61,6 +61,12 @@ const _sniWhitelistDomains = [
   'wildberries.ru',
   'avito.ru',
   'lamoda.ru',
+  // Additional commonly used Russian services; these are candidates only,
+  // not a guarantee that a given proxy endpoint accepts their TLS SNI.
+  'rutube.ru',
+  'dzen.ru',
+  'max.ru',
+  'kinopoisk.ru',
 ];
 
 /// Apply SNI override only to outbound types with a supported SNI field.
