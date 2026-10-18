@@ -612,7 +612,7 @@ class AppState extends ChangeNotifier {
       Process? process;
       if (Platform.isWindows) {
         process = await Process.start(binary!, ['start', '--config', configFile.path],
-            workingDirectory: p.dirname(binary), runInShell: false);
+            workingDirectory: p.dirname(binary!), runInShell: false);
         _hylProcesses.add(process);
         process.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(
           (line) => logs.add(LogEntry('info', '[HyL] ' + line)),
