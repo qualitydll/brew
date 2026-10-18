@@ -32,19 +32,46 @@ class MihomoCore {
       // Also check current directory for development
       p.join(Directory.current.path, 'core', binaryName),
     ];
+    // A path existing on disk does not mean the native executable is usable.
+    // On Windows, a stale custom path can point at a broken/unsupported
+    // mihomo.exe that crashes even for "-v". Probe each candidate and fall
+    // back to the next one (notably the bundled core) instead of selecting it
+    // solely because the file exists.
     for (final c in candidates) {
-      if (await File(c).exists()) return c;
+      if (!await File(c).exists()) continue;
+      try {
+        final probe = await Process.run(c, ['-v']).timeout(
+          const Duration(seconds: 6),
+          onTimeout: () => ProcessResult(-1, -1, '', 'version probe timed out'),
+        );
+        if (probe.exitCode == 0) return c;
+      } catch (_) {
+        // Continue to the next candidate if the executable cannot start.
+      }
     }
     try {
       final res = await Process.run(Platform.isWindows ? 'where' : 'which', [
         'mihomo',
-      ]);
+      ]).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => ProcessResult(-1, -1, '', 'path lookup timed out'),
+      );
       if (res.exitCode == 0) {
-        final first = (res.stdout as String)
+        for (final candidate in (res.stdout as String)
             .split(RegExp(r'[\r\n]+'))
-            .first
-            .trim();
-        if (first.isNotEmpty) return first;
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)) {
+          try {
+            final probe = await Process.run(candidate, ['-v']).timeout(
+              const Duration(seconds: 6),
+              onTimeout: () =>
+                  ProcessResult(-1, -1, '', 'version probe timed out'),
+            );
+            if (probe.exitCode == 0) return candidate;
+          } catch (_) {
+            // Ignore unusable PATH entries and keep looking.
+          }
+        }
       }
     } catch (_) {}
     return null;
