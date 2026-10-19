@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../brand.dart';
+import '../../brand.dart';
 
 /// Fades + slides a child in after a delay based on its index.
 class StaggeredEntrance extends StatefulWidget {
@@ -46,7 +46,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   @override
   Widget build(BuildContext context) {
-    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubicEmphasized);
+    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
     return AnimatedBuilder(
       animation: curve,
       builder: (context, child) => Opacity(
@@ -132,7 +132,6 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Material(
       color: kFClashCardBackground.withValues(alpha: 0.85),
       shape: RoundedRectangleBorder(
@@ -191,8 +190,6 @@ class PageHeader extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Keep the title/subtitle readable instead of squeezing words between
-        // the heading and a row of action buttons on compact windows.
         final compact = constraints.maxWidth < 820;
         return Padding(
           padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
