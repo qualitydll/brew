@@ -489,8 +489,10 @@ class AppState extends ChangeNotifier {
     String? androidSessionId;
     try {
       final content = await _profileFile(profile.id).readAsString();
-      final parsed = parseSubscription(content);
-      final config = applyCoreOptions(baseConfigFor(parsed), _options);
+      final config = applyCoreOptions(
+        baseConfigFor(parseSubscription(content)),
+        _options,
+      );
       final rawProxies = config['proxies'];
       proxyConfigs = {
         if (rawProxies is List)
@@ -616,7 +618,6 @@ class AppState extends ChangeNotifier {
       error = e.toString();
       logs.add(LogEntry('error', error!));
     } finally {
-      await _stopHylClients();
       _afterStopped();
     }
   }
@@ -658,7 +659,6 @@ class AppState extends ChangeNotifier {
       } else {
         await core.stop();
       }
-      await _stopHylClients();
     }
   }
 

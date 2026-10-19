@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../motion.dart';
 
 /// Slowly drifting, color-tinted light blobs behind the whole UI.
@@ -74,17 +75,18 @@ class _AuroraPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = scheme.surface);
+    canvas.drawRect(Offset.zero & size, Paint()..color = kFClashBackground);
     final dark = scheme.brightness == Brightness.dark;
+    // Use FClash-inspired colors for the aurora
     final blobs = [
-      (scheme.primary, 0.0, 0.31, 0.23, 0.75, 0.25),
-      (scheme.tertiary, 2.1, 0.19, 0.29, 0.25, 0.8),
-      (scheme.secondary, 4.2, 0.27, 0.17, 0.85, 0.85),
-      (scheme.primaryContainer, 1.3, 0.13, 0.21, 0.2, 0.2),
+      (kFClashAccentBright, 0.0, 0.31, 0.23, 0.75, 0.25),
+      (kFClashAccentLight, 2.1, 0.19, 0.29, 0.25, 0.8),
+      (kFClashAccent, 4.2, 0.27, 0.17, 0.85, 0.85),
+      (kFClashAccentBright.withValues(alpha: 0.6), 1.3, 0.13, 0.21, 0.2, 0.2),
     ];
     final t = s.time;
     final base = size.shortestSide;
-    final alpha = (dark ? 0.14 : 0.18) + (dark ? 0.12 : 0.1) * s.energy;
+    final alpha = 0.12 + 0.1 * s.energy;
     final paint = Paint()..color = Colors.black.withValues(alpha: alpha);
     for (final (color, phase, fx, fy, cx, cy) in blobs) {
       final center = Offset(

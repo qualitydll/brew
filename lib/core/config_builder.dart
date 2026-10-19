@@ -28,14 +28,14 @@ class CoreOptions {
   final bool externalTun;
   final List<String> userRules;
 
-  /// When true, overrides SNI only on supported non-Reality proxy types.
-  /// This does not bypass certificate validation; the server must be configured
-  /// for the chosen name or the proxy must explicitly permit insecure TLS.
+  /// When true, overrides the SNI field of every proxy with a domain from the
+  /// Russian mobile-internet whitelist so that the TLS ClientHello passes
+  /// the operator's allowlist check.
   final bool sniSpoofing;
 }
 
-/// Candidate SNI hostnames used by the optional override. Availability varies
-/// by operator and none of these names is guaranteed to pass every allowlist.
+/// Domains that are reliably allowed on Russian mobile networks during
+/// whitelist-mode restrictions.
 const _sniWhitelistDomains = [
   'gosuslugi.ru',
   'vk.com',
@@ -43,66 +43,7 @@ const _sniWhitelistDomains = [
   'sberbank.ru',
   'mail.ru',
   'ok.ru',
-  'ru.wikipedia.org',
-  'russianpost.ru',
-  'mvd.ru',
-  'fssp.gov.ru',
-  'nalog.ru',
-  'pfr.gov.ru',
-  'gks.ru',
-  'rosreestr.gov.ru',
-  'rzd.ru',
-  'aeroflot.ru',
-  'telegram.org',
-  'tinkoff.ru',
-  'alfa-bank.ru',
-  'vtb.ru',
-  'ozon.ru',
-  'wildberries.ru',
-  'avito.ru',
-  'lamoda.ru',
 ];
-
-/// Apply SNI override only to outbound types with a supported SNI field.
-/// Reality configurations deliberately keep their original servername: it is
-/// part of the Reality handshake and replacing it usually breaks the tunnel.
-/// Do not mutate unrelated transport fields or inject global config keys.
-Map<String, dynamic> _applyDpiBypassToProxy(
-  Map<dynamic, dynamic> proxy,
-  String sniDomain,
-) {
-  final result = <String, dynamic>{
-    for (final entry in proxy.entries) entry.key.toString(): entry.value,
-  };
-  final type = result['type']?.toString().toLowerCase() ?? '';
-
-  // Reality server names are negotiated with the server and cannot be
-  // replaced by a generic allowlist hostname.
-  if (result.containsKey('reality-opts')) return result;
-
-  switch (type) {
-    case 'vless':
-    case 'vmess':
-      // These protocols need an explicitly enabled TLS layer.
-      if (result['tls'] != true) return result;
-      result['servername'] = sniDomain;
-      result.putIfAbsent('client-fingerprint', () => 'chrome');
-      break;
-    case 'trojan':
-      result['sni'] = sniDomain;
-      break;
-    case 'hysteria2':
-    case 'tuic':
-    case 'anytls':
-    case 'shadowquic':
-      result['sni'] = sniDomain;
-      break;
-    default:
-      // No SNI field for plaintext protocols such as Shadowsocks.
-      break;
-  }
-  return result;
-}
 
 const _privateRules = [
   'IP-CIDR,127.0.0.0/8,DIRECT,no-resolve',
@@ -177,9 +118,8 @@ Map<String, dynamic> applyCoreOptions(
   cfg['find-process-mode'] = 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
-  // Only change supported per-proxy SNI fields. The old implementation also
-  // injected a top-level "tls" map (not a Mihomo core option) and unrelated
-  // smux/network options, which could make Android config validation fail.
+  // SNI Spoofing: replace the servername of every proxy so the TLS
+  // ClientHello shows a whitelisted domain to the operator's DPI filter.
   if (o.sniSpoofing) {
     final proxies = cfg['proxies'];
     if (proxies is List) {
@@ -187,10 +127,11 @@ Map<String, dynamic> applyCoreOptions(
       cfg['proxies'] = [
         for (final proxy in proxies)
           if (proxy is Map)
-            _applyDpiBypassToProxy(
-              proxy,
-              _sniWhitelistDomains[domainIndex++ % _sniWhitelistDomains.length],
-            )
+            {
+              ...proxy,
+              'servername': _sniWhitelistDomains[
+                  domainIndex++ % _sniWhitelistDomains.length],
+            }
           else
             proxy,
       ];
@@ -225,10 +166,7 @@ Map<String, dynamic> applyCoreOptions(
     // when the provider explicitly disabled DNS) are otherwise retained.
     final existingDns = cfg['dns'];
     final dns = existingDns is Map
-        ? <String, dynamic>{
-            for (final entry in existingDns.entries)
-              if (entry.key is String) entry.key as String: entry.value,
-          }
+        ? existingDns.cast<String, dynamic>()
         : <String, dynamic>{};
     final mergedDns = <String, dynamic>{
       'enable': true,
