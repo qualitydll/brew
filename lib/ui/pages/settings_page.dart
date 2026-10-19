@@ -95,7 +95,7 @@ class SettingsPage extends StatelessWidget {
               title: Text('Android VPN'),
               subtitle: Text('Весь трафик проходит через системный VpnService.'),
             ),
-            _SniSpoofingTile(state: state),
+            _WlsTile(state: state),
           ] else ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -567,8 +567,8 @@ Future<String?> _promptMultiline(
   );
 }
 
-class _SniSpoofingTile extends StatelessWidget {
-  const _SniSpoofingTile({required this.state});
+class _WlsTile extends StatelessWidget {
+  const _WlsTile({required this.state});
   final AppState state;
 
   void _showInfo(BuildContext context) {
@@ -576,20 +576,22 @@ class _SniSpoofingTile extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.security_rounded),
-        title: const Text('SNI Spoofing'),
+        title: const Text('WLS (White-list Spoofing)'),
         content: const SizedBox(
           width: 400,
           child: Text(
-            'Когда мобильный оператор включает белые списки, '
-            'он проверяет поле SNI в TLS-запросе — открытое поле, '
-            'которое видно до шифрования.\n\n'
-            'SNI Spoofing заменяет это поле на домен из белого списка '
-            '(например, gosuslugi.ru), поэтому оператор думает, что вы '
-            'обращаетесь к разрешённому сайту, и пропускает трафик.\n\n'
-            'Реальное соединение при этом идёт к вашему VPN-серверу — '
-            'данные зашифрованы и защищены.\n\n'
-            'Помогает, если оператор фильтрует только по SNI, '
-            'не проверяя IP-адрес назначения.',
+            'WLS — это направление обхода ограничений по белым спискам, '
+            'а не простая подмена SNI. Оператор может проверять IP-адрес '
+            'назначения, поэтому одна лишь подмена SNI не обеспечивает обход.\\n\\n'
+            'Текущий переключатель сохраняет прежнюю настройку SNI для '
+            'совместимости со старыми профилями. Он НЕ включает полноценный '
+            'WLS-туннель через разрешённый транспорт.\\n\\n'
+            'Для полноценной реализации Brew нужны клиентский транспорт и '
+            'серверная сторона на вашем VPS, а также согласованный протокол '
+            'переноса трафика. Пока эти компоненты не интегрированы, приложение '
+            'не должно показывать, будто белый список уже обойдён.\\n\\n'
+            'Обычный VPN через зарубежный IP может не подключиться, если '
+            'оператор пропускает только адреса из белого списка.'',
             style: TextStyle(height: 1.55),
           ),
         ),
@@ -609,7 +611,7 @@ class _SniSpoofingTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Row(
         children: [
-          const Text('SNI Spoofing'),
+          const Text('WLS (White-list Spoofing)'),
           const SizedBox(width: 4),
           IconButton(
             iconSize: 18,
@@ -626,7 +628,7 @@ class _SniSpoofingTile extends StatelessWidget {
         ],
       ),
       subtitle: const Text(
-        'Маскирует VPN-трафик под разрешённые сайты при блокировке оператором',
+        'Экспериментальная настройка SNI; полноценный WLS-транспорт ещё не подключён',
       ),
       value: state.settings.sniSpoofing,
       onChanged: state.setSniSpoofing,
