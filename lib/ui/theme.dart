@@ -18,20 +18,18 @@ ColorScheme fclashScheme() {
     onTertiary: Colors.white,
     tertiaryContainer: kFClashAccent.withValues(alpha: 0.4),
     onTertiaryContainer: Colors.white,
-    error: Color(0xFFCF6679),
+    error: const Color(0xFFCF6679),
     onError: Colors.black,
-    errorContainer: Color(0xFFB1384C),
+    errorContainer: const Color(0xFFB1384C),
     onErrorContainer: Colors.white,
-    background: kFClashBackground,
-    onBackground: Color(0xFFE0D5CF),
     surface: kFClashSurface,
-    onSurface: Color(0xFFE0D5CF),
-    surfaceVariant: kFClashCardBackground,
-    onSurfaceVariant: Color(0xFFB5A6A0),
-    outline: Color(0xFF6F5B4D).withValues(alpha: 0.5),
-    outlineVariant: Color(0xFF36302C),
-    inverseSurface: Color(0xFFE0D5CF),
-    onInverseSurface: Color(0xFF36302C),
+    onSurface: const Color(0xFFE0D5CF),
+    surfaceContainerHighest: kFClashCardBackground,
+    onSurfaceVariant: const Color(0xFFB5A6A0),
+    outline: const Color(0xFF6F5B4D).withValues(alpha: 0.5),
+    outlineVariant: const Color(0xFF36302C),
+    inverseSurface: const Color(0xFFE0D5CF),
+    onInverseSurface: const Color(0xFF36302C),
     inversePrimary: kFClashAccent,
     shadow: Colors.black,
     scrim: Colors.black.withValues(alpha: 0.8),
@@ -40,7 +38,6 @@ ColorScheme fclashScheme() {
 
 /// Material You scheme; the default brew orange gets a coffee-brown tertiary.
 ColorScheme brewScheme(Color seed, Brightness b, DynamicSchemeVariant v) {
-  // Always use FClash dark theme for consistent styling
   return fclashScheme();
 }
 
@@ -109,7 +106,7 @@ ThemeData buildTheme(ColorScheme scheme) {
         borderSide: BorderSide.none,
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: kFClashCardBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
