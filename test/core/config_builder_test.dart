@@ -20,7 +20,7 @@ void main() {
       'uplink-http-method': 'GET',
       'uplink-data-placement': 'header',
       'uplink-data-key': 'X-Playback-Token',
-      'uplink-chunk-size': '64-128',
+      'uplink-chunk-size': 64,
       'session-placement': 'cookie',
       'session-key': 'media_sid',
       'seq-placement': 'query',
