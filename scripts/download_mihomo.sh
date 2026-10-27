@@ -3,7 +3,7 @@
 # Usage: ./scripts/download_mihomo.sh
 
 CORE_DIR="core"
-MIHOMO_VERSION="v1.18.7"
+MIHOMO_VERSION="v1.19.33"
 
 # Detect platform
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
