@@ -339,8 +339,6 @@ Map<String, dynamic> _parseVless(String link) {
     'uplinkChunkSize': 'uplink-chunk-size',
     'scMaxEachPostBytes': 'sc-max-each-post-bytes',
     'scMinPostsIntervalMs': 'sc-min-posts-interval-ms',
-    'scStreamUpServerSecs': 'sc-stream-up-server-secs',
-    'scMaxBufferedPosts': 'sc-max-buffered-posts',
     'sessionPlacement': 'session-placement',
     'sessionKey': 'session-key',
     'sessionTable': 'session-table',
@@ -409,6 +407,13 @@ Map<String, dynamic> _parseVless(String link) {
   for (final entry in xhttpOptionNames.entries) {
     final value = q[entry.key];
     if (value != null && value.isNotEmpty) xhttpOptions[entry.value] = value;
+  }
+  // Mihomo expects an integer chunk size, while some share links encode a range.
+  // Use the lower bound so the configured chunk stays within the advertised limit.
+  final chunkSize = xhttpOptions['uplink-chunk-size'];
+  if (chunkSize is String) {
+    final minimum = int.tryParse(chunkSize.split('-').first.trim());
+    if (minimum != null) xhttpOptions['uplink-chunk-size'] = minimum;
   }
   final queryHeaders = q['headers'];
   if (queryHeaders != null && queryHeaders.isNotEmpty) {
