@@ -350,7 +350,6 @@ Map<String, dynamic> _parseVless(String link) {
     'sessionIDLength': 'session-length',
     'seqPlacement': 'seq-placement',
     'seqKey': 'seq-key',
-    'sessionID': 'session-id',
   };
   void copyXhttpOptions(Map source) {
     for (final entry in xhttpOptionNames.entries) {
@@ -389,11 +388,19 @@ Map<String, dynamic> _parseVless(String link) {
   }
 
   // Some panels put mode/path/host only in extra, others use query parameters.
+  var xhttpMode = q['mode'];
+  var xhttpPath = q['path'];
+  var xhttpHost = q['host'];
   final extra = q['extra'];
   if (extra != null && extra.isNotEmpty) {
     try {
       final decodedExtra = jsonDecode(extra);
-      if (decodedExtra is Map) copyXhttpOptions(decodedExtra);
+      if (decodedExtra is Map) {
+        copyXhttpOptions(decodedExtra);
+        xhttpMode ??= decodedExtra['mode']?.toString();
+        xhttpPath ??= decodedExtra['path']?.toString();
+        xhttpHost ??= decodedExtra['host']?.toString();
+      }
     } catch (_) {
       // Optional extras should not make an otherwise parseable link fail.
     }
@@ -418,11 +425,11 @@ Map<String, dynamic> _parseVless(String link) {
   _applyTransport(
     p,
     network: q['type'],
-    path: q['path'],
-    host: q['host'],
+    path: xhttpPath,
+    host: xhttpHost,
     serviceName: q['serviceName'],
     headerType: q['headerType'],
-    mode: q['mode'],
+    mode: xhttpMode,
     xhttpOptions: xhttpOptions,
   );
   return p;
