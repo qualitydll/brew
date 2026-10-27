@@ -195,6 +195,7 @@ void _applyTransport(
   String? serviceName,
   String? headerType,
   String? mode,
+  Map<String, dynamic>? xhttpOptions,
 }) {
   final net = (network == null || network.isEmpty) ? 'tcp' : network;
   switch (net) {
@@ -222,6 +223,7 @@ void _applyTransport(
         'path': (path == null || path.isEmpty) ? '/' : path,
         if (host != null && host.isNotEmpty) 'host': host,
         if (mode != null && mode.isNotEmpty) 'mode': mode,
+        ...?xhttpOptions,
       };
     case 'tcp':
       if (headerType == 'http') {
@@ -319,6 +321,47 @@ Map<String, dynamic> _parseVless(String link) {
     'packet-encoding',
     q['packet-encoding'] ?? q['packetEncoding'],
   );
+  // Preserve modern XHTTP settings carried by CDN-oriented share links.
+  final xhttpOptions = <String, dynamic>{};
+  const xhttpOptionNames = <String, String>{
+    'noGRPCHeader': 'no-grpc-header',
+    'xPaddingBytes': 'x-padding-bytes',
+    'xPaddingObfsMode': 'x-padding-obfs-mode',
+    'xPaddingKey': 'x-padding-key',
+    'xPaddingHeader': 'x-padding-header',
+    'xPaddingPlacement': 'x-padding-placement',
+    'xPaddingMethod': 'x-padding-method',
+    'uplinkHTTPMethod': 'uplink-http-method',
+    'sessionPlacement': 'session-placement',
+    'seqPlacement': 'seq-placement',
+  };
+  for (final entry in xhttpOptionNames.entries) {
+    final value = q[entry.key];
+    if (value != null && value.isNotEmpty) {
+      xhttpOptions[entry.value] = value;
+    }
+  }
+  final extra = q['extra'];
+  if (extra != null && extra.isNotEmpty) {
+    try {
+      final decodedExtra = jsonDecode(extra);
+      if (decodedExtra is Map<String, dynamic>) {
+        for (final entry in xhttpOptionNames.entries) {
+          final value = decodedExtra[entry.key];
+          if (value != null) xhttpOptions[entry.value] = value;
+        }
+        final headers = decodedExtra['headers'];
+        if (headers is Map) {
+          xhttpOptions['headers'] = {
+            for (final header in headers.entries)
+              header.key.toString(): header.value,
+          };
+        }
+      }
+    } catch (_) {
+      // Optional extras should not make an otherwise parseable link fail.
+    }
+  }
   _applyTransport(
     p,
     network: q['type'],
@@ -327,6 +370,7 @@ Map<String, dynamic> _parseVless(String link) {
     serviceName: q['serviceName'],
     headerType: q['headerType'],
     mode: q['mode'],
+    xhttpOptions: xhttpOptions,
   );
   return p;
 }
