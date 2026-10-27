@@ -8,8 +8,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val mihomoAndroidVersion = "0.3.7"
-val mihomoAndroidSha256 = "e9582440766f7e37f8f6b23344bee35d73e66e7e7a9fc3b90da5631f0fd19f24"
+val mihomoAndroidVersion = "0.3.12"
+val mihomoAndroidSha256 = "c5f857d00319a7690b1dbf083387f5617454ed5a21eb87488644de2c18b7e42f"
 val mihomoAndroidAar = layout.buildDirectory.file(
     "mihomo/libmihomo-android-v$mihomoAndroidVersion.aar",
 )

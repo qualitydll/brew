@@ -195,6 +195,7 @@ void _applyTransport(
   String? serviceName,
   String? headerType,
   String? mode,
+  Map<String, dynamic>? xhttpOptions,
 }) {
   final net = (network == null || network.isEmpty) ? 'tcp' : network;
   switch (net) {
@@ -222,6 +223,7 @@ void _applyTransport(
         'path': (path == null || path.isEmpty) ? '/' : path,
         if (host != null && host.isNotEmpty) 'host': host,
         if (mode != null && mode.isNotEmpty) 'mode': mode,
+        ...?xhttpOptions,
       };
     case 'tcp':
       if (headerType == 'http') {
@@ -319,14 +321,121 @@ Map<String, dynamic> _parseVless(String link) {
     'packet-encoding',
     q['packet-encoding'] ?? q['packetEncoding'],
   );
+  // Xray-style XHTTP links commonly store their transport configuration in
+  // the URL's JSON `extra` parameter. Translate known fields to Mihomo's
+  // schema while preserving booleans, numbers, ranges, and custom headers.
+  final xhttpOptions = <String, dynamic>{};
+  const xhttpOptionNames = <String, String>{
+    'noGRPCHeader': 'no-grpc-header',
+    'xPaddingBytes': 'x-padding-bytes',
+    'xPaddingObfsMode': 'x-padding-obfs-mode',
+    'xPaddingKey': 'x-padding-key',
+    'xPaddingHeader': 'x-padding-header',
+    'xPaddingPlacement': 'x-padding-placement',
+    'xPaddingMethod': 'x-padding-method',
+    'uplinkHTTPMethod': 'uplink-http-method',
+    'uplinkDataPlacement': 'uplink-data-placement',
+    'uplinkDataKey': 'uplink-data-key',
+    'uplinkChunkSize': 'uplink-chunk-size',
+    'scMaxEachPostBytes': 'sc-max-each-post-bytes',
+    'scMinPostsIntervalMs': 'sc-min-posts-interval-ms',
+    'sessionPlacement': 'session-placement',
+    'sessionKey': 'session-key',
+    'sessionTable': 'session-table',
+    'sessionLength': 'session-length',
+    'sessionIDPlacement': 'session-placement',
+    'sessionIDKey': 'session-key',
+    'sessionIDLength': 'session-length',
+    'seqPlacement': 'seq-placement',
+    'seqKey': 'seq-key',
+  };
+  void copyXhttpOptions(Map source) {
+    for (final entry in xhttpOptionNames.entries) {
+      final value = source[entry.key];
+      if (value != null) xhttpOptions[entry.value] = value;
+    }
+    final headers = source['headers'];
+    if (headers is Map) {
+      xhttpOptions['headers'] = {
+        for (final header in headers.entries)
+          header.key.toString(): header.value,
+      };
+    }
+    final reuse = source['reuseSettings'] ?? source['reuse-settings'];
+    if (reuse is Map) {
+      const reuseNames = <String, String>{
+        'maxConcurrency': 'max-concurrency',
+        'maxConnections': 'max-connections',
+        'cMaxReuseTimes': 'c-max-reuse-times',
+        'hMaxRequestTimes': 'h-max-request-times',
+        'hMaxReusableSecs': 'h-max-reusable-secs',
+        'hKeepAlivePeriod': 'h-keep-alive-period',
+        'c-max-reuse-times': 'c-max-reuse-times',
+        'h-max-request-times': 'h-max-request-times',
+        'h-max-reusable-secs': 'h-max-reusable-secs',
+        'h-keep-alive-period': 'h-keep-alive-period',
+        'max-concurrency': 'max-concurrency',
+        'max-connections': 'max-connections',
+      };
+      xhttpOptions['reuse-settings'] = {
+        for (final entry in reuseNames.entries)
+          if (reuse[entry.key] != null)
+            entry.value: reuse[entry.key],
+      };
+    }
+  }
+
+  // Some panels put mode/path/host only in extra, others use query parameters.
+  var xhttpMode = q['mode'];
+  var xhttpPath = q['path'];
+  var xhttpHost = q['host'];
+  final extra = q['extra'];
+  if (extra != null && extra.isNotEmpty) {
+    try {
+      final decodedExtra = jsonDecode(extra);
+      if (decodedExtra is Map) {
+        copyXhttpOptions(decodedExtra);
+        xhttpMode ??= decodedExtra['mode']?.toString();
+        xhttpPath ??= decodedExtra['path']?.toString();
+        xhttpHost ??= decodedExtra['host']?.toString();
+      }
+    } catch (_) {
+      // Optional extras should not make an otherwise parseable link fail.
+    }
+  }
+  // Explicit query values take precedence over the extra JSON.
+  for (final entry in xhttpOptionNames.entries) {
+    final value = q[entry.key];
+    if (value != null && value.isNotEmpty) xhttpOptions[entry.value] = value;
+  }
+  // Mihomo expects an integer chunk size, while some share links encode a range.
+  // Use the lower bound so the configured chunk stays within the advertised limit.
+  final chunkSize = xhttpOptions['uplink-chunk-size'];
+  if (chunkSize is String) {
+    final minimum = int.tryParse(chunkSize.split('-').first.trim());
+    if (minimum != null) xhttpOptions['uplink-chunk-size'] = minimum;
+  }
+  final queryHeaders = q['headers'];
+  if (queryHeaders != null && queryHeaders.isNotEmpty) {
+    try {
+      final decodedHeaders = jsonDecode(queryHeaders);
+      if (decodedHeaders is Map) {
+        xhttpOptions['headers'] = {
+          for (final header in decodedHeaders.entries)
+            header.key.toString(): header.value,
+        };
+      }
+    } catch (_) {}
+  }
   _applyTransport(
     p,
     network: q['type'],
-    path: q['path'],
-    host: q['host'],
+    path: xhttpPath,
+    host: xhttpHost,
     serviceName: q['serviceName'],
     headerType: q['headerType'],
-    mode: q['mode'],
+    mode: xhttpMode,
+    xhttpOptions: xhttpOptions,
   );
   return p;
 }

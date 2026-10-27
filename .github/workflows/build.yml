@@ -45,7 +45,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $version = "v1.19.32"
+          $version = "v1.19.33"
           $archive = Join-Path $env:RUNNER_TEMP "mihomo-windows-amd64-$version.zip"
           $url = "https://github.com/MetaCubeX/mihomo/releases/download/$version/mihomo-windows-amd64-$version.zip"
           Invoke-WebRequest -Uri $url -OutFile $archive
