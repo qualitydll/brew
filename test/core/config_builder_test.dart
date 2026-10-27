@@ -156,6 +156,25 @@ rules:
     expect(proxy['xhttp-opts'], {'path': '/edge', 'mode': 'auto'});
   });
 
+  test('VLESS XHTTP CDN extras are preserved in Mihomo xhttp-opts', () {
+    const link = 'vless://00000000-0000-4000-8000-000000000001@cdn.example:443'
+        '?security=tls&sni=example.org&type=xhttp&host=cdn.example'
+        '&path=%2Fedge&mode=stream-one'
+        '&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%2C%22uplinkHTTPMethod%22%3A%22POST%22%2C%22headers%22%3A%7B%22X-Test%22%3A%22cdn%22%7D%7D'
+        '#cdn-xhttp-get';
+
+    final proxy = parseSubscription(link).proxies.single;
+    expect(proxy['network'], 'xhttp');
+    expect(proxy['xhttp-opts'], {
+      'path': '/edge',
+      'host': 'cdn.example',
+      'mode': 'stream-one',
+      'x-padding-bytes': '100-1000',
+      'uplink-http-method': 'POST',
+      'headers': {'X-Test': 'cdn'},
+    });
+  });
+
   test('Android TUN enables DNS while preserving provider DNS options', () {
     final config = applyCoreOptions(
       const {
