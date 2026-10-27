@@ -3,6 +3,39 @@ import 'package:brew/core/link_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('VLESS CDN XHTTP GET preserves full XHTTP transport settings', () {
+    const link = 'vless://00000000-0000-4000-8000-000000000001@cdn.example:443'
+        '?security=tls&sni=cdn.example&type=xhttp&host=cdn.example'
+        '&path=%2Fupload&alpn=h2%2Chttp%2F1.1'
+        '&extra=%7B%22mode%22%3A%22packet-up%22%2C%22uplinkHTTPMethod%22%3A%22GET%22%2C%22uplinkDataPlacement%22%3A%22header%22%2C%22uplinkDataKey%22%3A%22X-Playback-Token%22%2C%22uplinkChunkSize%22%3A%2264-128%22%2C%22sessionIDPlacement%22%3A%22cookie%22%2C%22sessionIDKey%22%3A%22media_sid%22%2C%22seqPlacement%22%3A%22query%22%2C%22seqKey%22%3A%22offset%22%2C%22xPaddingObfsMode%22%3Atrue%2C%22xPaddingPlacement%22%3A%22queryInHeader%22%2C%22xPaddingKey%22%3A%22_dc%22%2C%22xPaddingHeader%22%3A%22X-Cache%22%2C%22xPaddingMethod%22%3A%22tokenish%22%2C%22scMaxEachPostBytes%22%3A%22131072-262144%22%2C%22scMinPostsIntervalMs%22%3A%225-10%22%2C%22headers%22%3A%7B%22X-Forwarded-For%22%3A%22%22%7D%7D'
+        '#CDN-XHTTP-GET';
+
+    final proxy = parseSubscription(link).proxies.single;
+    expect(proxy['type'], 'vless');
+    expect(proxy['network'], 'xhttp');
+    expect(proxy['xhttp-opts'], {
+      'path': '/upload',
+      'host': 'cdn.example',
+      'mode': 'packet-up',
+      'uplink-http-method': 'GET',
+      'uplink-data-placement': 'header',
+      'uplink-data-key': 'X-Playback-Token',
+      'uplink-chunk-size': '64-128',
+      'session-placement': 'cookie',
+      'session-key': 'media_sid',
+      'seq-placement': 'query',
+      'seq-key': 'offset',
+      'x-padding-obfs-mode': true,
+      'x-padding-placement': 'queryInHeader',
+      'x-padding-key': '_dc',
+      'x-padding-header': 'X-Cache',
+      'x-padding-method': 'tokenish',
+      'sc-max-each-post-bytes': '131072-262144',
+      'sc-min-posts-interval-ms': '5-10',
+      'headers': {'X-Forwarded-For': ''},
+    });
+  });
+
   test('Android external TUN keeps Mihomo TUN disabled and enables DNS', () {
     final config = applyCoreOptions(
       const <String, dynamic>{},
