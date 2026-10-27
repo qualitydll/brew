@@ -321,7 +321,9 @@ Map<String, dynamic> _parseVless(String link) {
     'packet-encoding',
     q['packet-encoding'] ?? q['packetEncoding'],
   );
-  // Preserve modern XHTTP settings carried by CDN-oriented share links.
+  // Xray-style XHTTP links commonly store their transport configuration in
+  // the URL's JSON `extra` parameter. Translate known fields to Mihomo's
+  // schema while preserving booleans, numbers, ranges, and custom headers.
   final xhttpOptions = <String, dynamic>{};
   const xhttpOptionNames = <String, String>{
     'noGRPCHeader': 'no-grpc-header',
@@ -332,35 +334,86 @@ Map<String, dynamic> _parseVless(String link) {
     'xPaddingPlacement': 'x-padding-placement',
     'xPaddingMethod': 'x-padding-method',
     'uplinkHTTPMethod': 'uplink-http-method',
+    'uplinkDataPlacement': 'uplink-data-placement',
+    'uplinkDataKey': 'uplink-data-key',
+    'uplinkChunkSize': 'uplink-chunk-size',
+    'scMaxEachPostBytes': 'sc-max-each-post-bytes',
+    'scMinPostsIntervalMs': 'sc-min-posts-interval-ms',
+    'scStreamUpServerSecs': 'sc-stream-up-server-secs',
+    'scMaxBufferedPosts': 'sc-max-buffered-posts',
     'sessionPlacement': 'session-placement',
+    'sessionKey': 'session-key',
+    'sessionTable': 'session-table',
+    'sessionLength': 'session-length',
+    'sessionIDPlacement': 'session-placement',
+    'sessionIDKey': 'session-key',
+    'sessionIDLength': 'session-length',
     'seqPlacement': 'seq-placement',
+    'seqKey': 'seq-key',
+    'sessionID': 'session-id',
   };
-  for (final entry in xhttpOptionNames.entries) {
-    final value = q[entry.key];
-    if (value != null && value.isNotEmpty) {
-      xhttpOptions[entry.value] = value;
+  void copyXhttpOptions(Map source) {
+    for (final entry in xhttpOptionNames.entries) {
+      final value = source[entry.key];
+      if (value != null) xhttpOptions[entry.value] = value;
+    }
+    final headers = source['headers'];
+    if (headers is Map) {
+      xhttpOptions['headers'] = {
+        for (final header in headers.entries)
+          header.key.toString(): header.value,
+      };
+    }
+    final reuse = source['reuseSettings'] ?? source['reuse-settings'];
+    if (reuse is Map) {
+      const reuseNames = <String, String>{
+        'maxConcurrency': 'max-concurrency',
+        'maxConnections': 'max-connections',
+        'cMaxReuseTimes': 'c-max-reuse-times',
+        'hMaxRequestTimes': 'h-max-request-times',
+        'hMaxReusableSecs': 'h-max-reusable-secs',
+        'hKeepAlivePeriod': 'h-keep-alive-period',
+        'c-max-reuse-times': 'c-max-reuse-times',
+        'h-max-request-times': 'h-max-request-times',
+        'h-max-reusable-secs': 'h-max-reusable-secs',
+        'h-keep-alive-period': 'h-keep-alive-period',
+        'max-concurrency': 'max-concurrency',
+        'max-connections': 'max-connections',
+      };
+      xhttpOptions['reuse-settings'] = {
+        for (final entry in reuseNames.entries)
+          if (reuse[entry.key] != null)
+            entry.value: reuse[entry.key],
+      };
     }
   }
+
+  // Some panels put mode/path/host only in extra, others use query parameters.
   final extra = q['extra'];
   if (extra != null && extra.isNotEmpty) {
     try {
       final decodedExtra = jsonDecode(extra);
-      if (decodedExtra is Map<String, dynamic>) {
-        for (final entry in xhttpOptionNames.entries) {
-          final value = decodedExtra[entry.key];
-          if (value != null) xhttpOptions[entry.value] = value;
-        }
-        final headers = decodedExtra['headers'];
-        if (headers is Map) {
-          xhttpOptions['headers'] = {
-            for (final header in headers.entries)
-              header.key.toString(): header.value,
-          };
-        }
-      }
+      if (decodedExtra is Map) copyXhttpOptions(decodedExtra);
     } catch (_) {
       // Optional extras should not make an otherwise parseable link fail.
     }
+  }
+  // Explicit query values take precedence over the extra JSON.
+  for (final entry in xhttpOptionNames.entries) {
+    final value = q[entry.key];
+    if (value != null && value.isNotEmpty) xhttpOptions[entry.value] = value;
+  }
+  final queryHeaders = q['headers'];
+  if (queryHeaders != null && queryHeaders.isNotEmpty) {
+    try {
+      final decodedHeaders = jsonDecode(queryHeaders);
+      if (decodedHeaders is Map) {
+        xhttpOptions['headers'] = {
+          for (final header in decodedHeaders.entries)
+            header.key.toString(): header.value,
+        };
+      }
+    } catch (_) {}
   }
   _applyTransport(
     p,
