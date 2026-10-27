@@ -2,7 +2,7 @@
 # Usage: .\scripts\download_mihomo.ps1
 
 $coreDir = "core"
-$coreUrl = "https://github.com/MetaCubeX/mihomo/releases/download/v1.18.7/mihomo-windows-amd64-v1.18.7.zip"
+$coreUrl = "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-windows-amd64-v1.19.33.zip"
 $coreZip = "$coreDir\mihomo.zip"
 $coreExe = "$coreDir\mihomo.exe"
 
@@ -11,7 +11,7 @@ if (-not (Test-Path $coreDir)) {
     New-Item -ItemType Directory -Path $coreDir -Force
 }
 
-Write-Host "Downloading mihomo v1.18.7..." -ForegroundColor Cyan
+Write-Host "Downloading mihomo v1.19.33..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri $coreUrl -OutFile $coreZip -UseBasicParsing
 
 Write-Host "Extracting..." -ForegroundColor Cyan
