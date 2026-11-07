@@ -883,6 +883,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setAppRules(List<String> rules) async {
+    settings.mode = 'rule';
     settings.appRules = rules.toSet().toList();
     notifyListeners();
     if (isConnected && Platform.isWindows) await reconnect();
