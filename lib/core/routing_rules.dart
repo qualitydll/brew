@@ -9,8 +9,10 @@ String normalizeDomainRule(
 }) {
   var domain = input.trim().toLowerCase();
   final zoneRule = domain.startsWith('.') || domain.startsWith('*.');
-  domain = domain.replaceFirst(RegExp(r'^\\*?\\.'), '');
-  domain = domain.replaceFirst(RegExp(r'\\.$'), '');
+
+  // Strip an optional wildcard/dot prefix and a trailing DNS root dot.
+  domain = domain.replaceFirst(RegExp(r'^\*?\.'), '');
+  domain = domain.replaceFirst(RegExp(r'\.$'), '');
 
   final labels = domain.split('.');
   final validLabels = labels.isNotEmpty &&
@@ -19,12 +21,10 @@ String normalizeDomainRule(
             label.length <= 63 &&
             RegExp(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$').hasMatch(label),
       );
-  final isZone = zoneRule &&
-      labels.length == 1 &&
-      RegExp(r'^[a-z]{2,}$').hasMatch(domain);
-  final valid = validLabels &&
-      (labels.length >= 2 || isZone) &&
-      domain.length <= 253;
+  final isZone =
+      zoneRule && labels.length == 1 && RegExp(r'^[a-z]{2,}$').hasMatch(domain);
+  final valid =
+      validLabels && (labels.length >= 2 || isZone) && domain.length <= 253;
   if (!valid) {
     throw FormatException(
       'Введите домен без схемы и пути, например example.com.',
