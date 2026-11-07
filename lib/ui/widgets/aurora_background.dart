@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../brand.dart';
 import '../motion.dart';
 
 /// Slowly drifting, color-tinted light blobs behind the whole UI.
@@ -60,7 +59,7 @@ class _AuroraBackgroundState extends State<AuroraBackground> {
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: CustomPaint(
-        painter: _AuroraPainter(_s),
+        painter: _AuroraPainter(_s, Theme.of(context).colorScheme),
         size: Size.infinite,
       ),
     );
@@ -68,18 +67,19 @@ class _AuroraBackgroundState extends State<AuroraBackground> {
 }
 
 class _AuroraPainter extends CustomPainter {
-  _AuroraPainter(this.s) : super(repaint: s);
+  _AuroraPainter(this.s, this.scheme) : super(repaint: s);
 
   final _AuroraState s;
+  final ColorScheme scheme;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = kFClashBackground);
+    canvas.drawRect(Offset.zero & size, Paint()..color = scheme.surface);
     final blobs = [
-      (kFClashAccentBright, 0.0, 0.31, 0.23, 0.75, 0.25),
-      (kFClashAccentLight, 2.1, 0.19, 0.29, 0.25, 0.8),
-      (kFClashAccent, 4.2, 0.27, 0.17, 0.85, 0.85),
-      (kFClashAccentBright.withValues(alpha: 0.6), 1.3, 0.13, 0.21, 0.2, 0.2),
+      (scheme.primary, 0.0, 0.31, 0.23, 0.75, 0.25),
+      (scheme.secondary, 2.1, 0.19, 0.29, 0.25, 0.8),
+      (scheme.tertiary, 4.2, 0.27, 0.17, 0.85, 0.85),
+      (scheme.primaryContainer, 1.3, 0.13, 0.21, 0.2, 0.2),
     ];
     final t = s.time;
     final base = size.shortestSide;
@@ -101,5 +101,5 @@ class _AuroraPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_AuroraPainter old) => old.s != s;
+  bool shouldRepaint(_AuroraPainter old) => old.s != s || old.scheme != scheme;
 }
