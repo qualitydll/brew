@@ -420,6 +420,7 @@ class AppState extends ChangeNotifier {
     sniSpoofing: settings.sniSpoofing,
     userRules: [
       ...settings.domainRules,
+      ...settings.appRules,
       ...settings.userRules
           .split('\n')
           .map((rule) => rule.trim())
@@ -515,6 +516,7 @@ class AppState extends ChangeNotifier {
         await androidVpn.start(
           configFile.path,
           sessionId: androidSessionId,
+          excludedApps: settings.excludedApps,
         );
         androidServiceStarted = true;
         await _waitForApi(api);
@@ -878,6 +880,19 @@ class AppState extends ChangeNotifier {
     settings.userRules = rules;
     notifyListeners();
     if (isConnected) await reconnect();
+  }
+
+  Future<void> setAppRules(List<String> rules) async {
+    settings.mode = 'rule';
+    settings.appRules = rules.toSet().toList();
+    notifyListeners();
+    if (isConnected && Platform.isWindows) await reconnect();
+  }
+
+  Future<void> setExcludedApps(List<String> packages) async {
+    settings.excludedApps = packages.toSet().toList()..sort();
+    notifyListeners();
+    if (isConnected && Platform.isAndroid) await reconnect();
   }
 
   Future<void> setTun(bool v) async {

@@ -2,43 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../brand.dart';
 
-/// FClash-style dark theme with brown/orange color scheme
-ColorScheme fclashScheme() {
-  return ColorScheme(
-    brightness: Brightness.dark,
-    primary: kFClashAccentBright,
-    onPrimary: Colors.white,
-    primaryContainer: kFClashAccent.withValues(alpha: 0.3),
-    onPrimaryContainer: Colors.white,
-    secondary: kFClashAccentLight,
-    onSecondary: Colors.white,
-    secondaryContainer: kFClashAccent.withValues(alpha: 0.2),
-    onSecondaryContainer: Colors.white,
-    tertiary: kFClashAccent,
-    onTertiary: Colors.white,
-    tertiaryContainer: kFClashAccent.withValues(alpha: 0.4),
-    onTertiaryContainer: Colors.white,
-    error: const Color(0xFFCF6679),
-    onError: Colors.black,
-    errorContainer: const Color(0xFFB1384C),
-    onErrorContainer: Colors.white,
-    surface: kFClashSurface,
-    onSurface: const Color(0xFFE0D5CF),
-    surfaceContainerHighest: kFClashCardBackground,
-    onSurfaceVariant: const Color(0xFFB5A6A0),
-    outline: const Color(0xFF6F5B4D).withValues(alpha: 0.5),
-    outlineVariant: const Color(0xFF36302C),
-    inverseSurface: const Color(0xFFE0D5CF),
-    onInverseSurface: const Color(0xFF36302C),
-    inversePrimary: kFClashAccent,
-    shadow: Colors.black,
-    scrim: Colors.black.withValues(alpha: 0.8),
+/// Build a Material 3 scheme from the selected accent color.
+/// The previous implementation ignored the seed and always returned brown.
+ColorScheme brewScheme(Color seed, Brightness brightness, DynamicSchemeVariant variant) {
+  return ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: brightness,
+    dynamicSchemeVariant: variant,
   );
-}
-
-/// Material You scheme; the default brew orange gets a coffee-brown tertiary.
-ColorScheme brewScheme(Color seed, Brightness b, DynamicSchemeVariant v) {
-  return fclashScheme();
 }
 
 ThemeData buildTheme(ColorScheme scheme) {
@@ -50,7 +21,7 @@ ThemeData buildTheme(ColorScheme scheme) {
   TextStyle? head(TextStyle? s) =>
       s?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5);
   return base.copyWith(
-    scaffoldBackgroundColor: kFClashBackground,
+    scaffoldBackgroundColor: scheme.surface,
     textTheme: t.copyWith(
       displayLarge: head(t.displayLarge),
       displayMedium: head(t.displayMedium),
@@ -65,7 +36,7 @@ ThemeData buildTheme(ColorScheme scheme) {
     ),
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: Colors.transparent,
-      indicatorColor: kFClashAccent.withValues(alpha: 0.4),
+      indicatorColor: scheme.primaryContainer,
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -86,13 +57,13 @@ ThemeData buildTheme(ColorScheme scheme) {
       elevation: 0,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: kFClashSurface.withValues(alpha: 0.95),
-      indicatorColor: kFClashAccent.withValues(alpha: 0.4),
+      backgroundColor: scheme.surfaceContainer,
+      indicatorColor: scheme.primaryContainer,
       elevation: 0,
     ),
     snackBarTheme: SnackBarThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: kFClashCardBackground,
+      backgroundColor: scheme.surfaceContainerHigh,
     ),
     dialogTheme: DialogThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -100,14 +71,14 @@ ThemeData buildTheme(ColorScheme scheme) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: kFClashSurface.withValues(alpha: 0.6),
+      fillColor: scheme.surfaceContainerLow,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
       ),
     ),
     cardTheme: CardThemeData(
-      color: kFClashCardBackground,
+      color: scheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),

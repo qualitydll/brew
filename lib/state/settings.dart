@@ -53,6 +53,14 @@ class Settings {
   List<String> get domainRules => _prefs.getStringList('domainRules') ?? [];
   set domainRules(List<String> v) => _prefs.setStringList('domainRules', v);
 
+  /// Android packages excluded from the VPN (their traffic goes direct).
+  List<String> get excludedApps => _prefs.getStringList('excludedApps') ?? [];
+  set excludedApps(List<String> v) => _prefs.setStringList('excludedApps', v);
+
+  /// Mihomo PROCESS-NAME rules selected for Windows applications.
+  List<String> get appRules => _prefs.getStringList('appRules') ?? [];
+  set appRules(List<String> v) => _prefs.setStringList('appRules', v);
+
   List<String> get favoriteServers =>
       _prefs.getStringList('favoriteServers') ?? [];
   set favoriteServers(List<String> v) =>

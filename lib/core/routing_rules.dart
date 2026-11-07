@@ -7,24 +7,31 @@ String normalizeDomainRule(
   required String action,
   required List<String> allowedActions,
 }) {
-  final domain = input.trim().toLowerCase().replaceFirst(RegExp(r'\.$'), '');
+  final raw = input.trim().toLowerCase();
+  // A leading dot means a complete DNS suffix/TLD, e.g. ".ru".
+  final isZone = raw.startsWith('.');
+  final domain = raw
+      .replaceFirst(RegExp(r'^\.'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
   final labels = domain.split('.');
-  final valid = labels.length >= 2 &&
+  final validLabels = labels.isNotEmpty &&
       labels.every(
         (label) =>
             label.length <= 63 &&
             RegExp(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$').hasMatch(label),
-      ) &&
+      );
+  final valid = validLabels &&
+      (isZone || labels.length >= 2) &&
       domain.length <= 253;
   if (!valid) {
     throw FormatException(
-      'Введите домен без схемы и пути, например example.com.',
+      'Введите домен (example.com) или доменную зону (.ru) без схемы и пути.',
     );
   }
   if (!allowedActions.contains(action)) {
     throw ArgumentError.value(action, 'action');
   }
-  return '${includeSubdomains ? 'DOMAIN-SUFFIX' : 'DOMAIN'},$domain,$action';
+  return '${isZone || includeSubdomains ? 'DOMAIN-SUFFIX' : 'DOMAIN'},$domain,$action';
 }
 
 List<String> routingActionsFor(ParsedSubscription subscription) {

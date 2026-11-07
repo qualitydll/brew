@@ -27,6 +27,18 @@ void main() {
     );
   });
 
+  test('a leading dot routes an entire TLD such as .ru', () {
+    expect(
+      normalizeDomainRule(
+        '.ru',
+        includeSubdomains: false,
+        action: 'DIRECT',
+        allowedActions: const ['DIRECT'],
+      ),
+      'DOMAIN-SUFFIX,ru,DIRECT',
+    );
+  });
+
   test('rejects URLs and actions not present in the profile', () {
     expect(
       () => normalizeDomainRule(

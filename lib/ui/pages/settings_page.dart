@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../../core/system_proxy.dart';
 import '../../core/routing_rules.dart';
 import '../../state/app_state.dart';
-import 'experiment_lab_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -130,12 +130,93 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
           ],
+          if (Platform.isAndroid)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.apps_rounded),
+              title: const Text('Приложения вне VPN'),
+              subtitle: Text(
+                s.excludedApps.isEmpty
+                    ? 'Все приложения используют VPN'
+                    : '${s.excludedApps.length} приложений используют прямое подключение',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showAndroidAppPicker(context, state),
+            ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Разрешить подключения из локальной сети'),
             value: s.allowLan,
             onChanged: state.setAllowLan,
           ),
+        ],
+      ),
+      _Section(
+        icon: Icons.alt_route_rounded,
+        title: 'Маршрутизация доменов и приложений',
+        children: [
+          if (Platform.isWindows)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.desktop_windows_rounded),
+              title: const Text('Приложения Windows'),
+              subtitle: Text(
+                !s.tun
+                    ? 'Включите TUN для маршрутизации отдельных программ'
+                    : s.appRules.isEmpty
+                        ? 'Выбрать запущенные приложения и назначить маршрут'
+                        : '${s.appRules.length} правил PROCESS-NAME',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              enabled: s.tun,
+              onTap: () async {
+                try {
+                  final actions = await state.routingActionsForActiveProfile();
+                  if (!context.mounted) return;
+                  await _showWindowsAppPicker(context, state, actions);
+                } catch (e) {
+                  if (context.mounted) showSnack(context, 'Не удалось открыть список: $e');
+                }
+              },
+            ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Добавить правило домена'),
+            subtitle: Text(
+              s.domainRules.isEmpty
+                  ? 'Домен или зона (.ru) → VPN, напрямую или блокировать'
+                  : '${s.domainRules.length} правил — раньше правил подписки',
+            ),
+            trailing: const Icon(Icons.add_rounded),
+            onTap: () async {
+              try {
+                final actions = await state.routingActionsForActiveProfile();
+                if (!context.mounted) return;
+                await showDialog<void>(
+                  context: context,
+                  builder: (_) => _DomainRuleDialog(
+                    actions: actions,
+                    onSave: state.addDomainRule,
+                  ),
+                );
+              } catch (e) {
+                if (context.mounted) showSnack(context, 'Не удалось открыть правила: $e');
+              }
+            },
+          ),
+          if (s.domainRules.isNotEmpty)
+            for (final rule in s.domainRules)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 12),
+                leading: const Icon(Icons.language_rounded),
+                title: Text(rule),
+                trailing: IconButton(
+                  tooltip: 'Удалить правило',
+                  onPressed: () => state.removeDomainRule(rule),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
         ],
       ),
       if (Platform.isWindows)
@@ -215,46 +296,6 @@ class SettingsPage extends StatelessWidget {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Маршрутизация доменов'),
-            subtitle: Text(
-              s.domainRules.isEmpty
-                  ? 'Сайт → через группу, напрямую или блокировать'
-                  : '${s.domainRules.length} правил — раньше правил подписки',
-            ),
-            trailing: const Icon(Icons.add_rounded),
-            onTap: () async {
-              try {
-                final actions = await state.routingActionsForActiveProfile();
-                if (!context.mounted) return;
-                await showDialog<void>(
-                  context: context,
-                  builder: (_) => _DomainRuleDialog(
-                    actions: actions,
-                    onSave: state.addDomainRule,
-                  ),
-                );
-              } catch (e) {
-                if (context.mounted) {
-                  showSnack(context, 'Не удалось открыть правила: $e');
-                }
-              }
-            },
-          ),
-          if (s.domainRules.isNotEmpty)
-            for (final rule in s.domainRules)
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 12),
-                leading: const Icon(Icons.language_rounded),
-                title: Text(rule),
-                trailing: IconButton(
-                  tooltip: 'Удалить правило',
-                  onPressed: () => state.removeDomainRule(rule),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
             title: const Text('Правила вручную · Advanced'),
             subtitle: Text(
               s.userRules.trim().isEmpty
@@ -316,29 +357,6 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
-      _Section(
-        icon: Icons.science_rounded,
-        title: 'Эксперименты',
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.science_outlined),
-            title: const Text('Brew Network Lab'),
-            subtitle: const Text('Адаптивная диагностика доступности, задержки и маршрута'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Brew Network Lab')),
-                  body: const SafeArea(
-                    child: ExperimentLabPage(showHeader: false),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
       const _Section(
         icon: Icons.info_rounded,
         title: 'О программе',
@@ -365,6 +383,189 @@ class SettingsPage extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<List<String>> _windowsRunningApps() async {
+  final result = await Process.run(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-Command',
+      r"Get-Process | Where-Object { $_.Path -and $_.MainWindowHandle -ne 0 } | Select-Object -ExpandProperty ProcessName | Sort-Object -Unique | ConvertTo-Json -Compress",
+    ],
+  );
+  if (result.exitCode != 0) {
+    final error = (result.stderr as String).trim();
+    throw StateError(error.isEmpty ? 'PowerShell не смог получить список приложений.' : error);
+  }
+  final output = (result.stdout as String).trim();
+  if (output.isEmpty) return const [];
+  final decoded = jsonDecode(output);
+  final names = decoded is List ? decoded : [decoded];
+  return names
+      .map((name) => name.toString().trim())
+      .where((name) => RegExp(r'^[A-Za-z0-9_. -]+$').hasMatch(name))
+      .toSet()
+      .toList()
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
+
+Future<void> _showWindowsAppPicker(
+  BuildContext context,
+  AppState state,
+  List<String> actions,
+) async {
+  final appsFuture = _windowsRunningApps();
+  final selected = <String>{};
+  String action = actions.contains('DIRECT') ? 'DIRECT' : actions.first;
+  for (final rule in state.settings.appRules) {
+    final parts = rule.split(',');
+    if (parts.length == 3 && parts.first == 'PROCESS-NAME') {
+      selected.add(parts[1].replaceFirst(RegExp(r'\.exe$', caseSensitive: false), ''));
+    }
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Приложения Windows'),
+        content: SizedBox(
+          width: 460,
+          height: 520,
+          child: Column(
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: action,
+                decoration: const InputDecoration(labelText: 'Маршрут'),
+                items: [
+                  for (final item in actions)
+                    DropdownMenuItem(value: item, child: Text(actionLabel(item))),
+                ],
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => action = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: FutureBuilder<List<String>>(
+                  future: appsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Text('Не удалось получить приложения: ' + snapshot.error.toString());
+                    }
+                    final apps = snapshot.data ?? const [];
+                    if (apps.isEmpty) {
+                      return const Text('Нет запущенных приложений с видимыми окнами. Запустите нужную программу и откройте список снова.');
+                    }
+                    return ListView(
+                      children: [
+                        for (final app in apps)
+                          CheckboxListTile(
+                            value: selected.contains(app),
+                            title: Text(app),
+                            subtitle: Text('$app.exe'),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            onChanged: (checked) => setDialogState(() {
+                              if (checked == true) {
+                                selected.add(app);
+                              } else {
+                                selected.remove(app);
+                              }
+                            }),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final rules = selected
+                  .map((name) => 'PROCESS-NAME,$name.exe,$action')
+                  .toList();
+              await state.setAppRules(rules);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _showAndroidAppPicker(BuildContext context, AppState state) async {
+  final appsFuture = state.androidVpn.installedApps();
+  final selected = state.settings.excludedApps.toSet();
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Приложения вне VPN'),
+        content: SizedBox(
+          width: 460,
+          height: 520,
+          child: FutureBuilder<List<Map<String, String>>>(
+            future: appsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Text('Не удалось получить список приложений: ' + snapshot.error.toString());
+              }
+              final apps = snapshot.data ?? const [];
+              if (apps.isEmpty) return const Text('Не найдено приложений с ярлыками запуска.');
+              return ListView.builder(
+                itemCount: apps.length,
+                itemBuilder: (context, index) {
+                  final app = apps[index];
+                  final packageName = app['packageName']!;
+                  return CheckboxListTile(
+                    value: selected.contains(packageName),
+                    title: Text(app['label']!.isEmpty ? packageName : app['label']!),
+                    subtitle: Text(packageName),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (checked) => setDialogState(() {
+                      if (checked == true) {
+                        selected.add(packageName);
+                      } else {
+                        selected.remove(packageName);
+                      }
+                    }),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await state.setExcludedApps(selected.toList());
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _DomainRuleDialog extends StatefulWidget {

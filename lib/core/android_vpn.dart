@@ -15,6 +15,18 @@ class AndroidVpn {
   final Duration startTimeout;
   final Duration stopTimeout;
 
+  Future<List<Map<String, String>>> installedApps() async {
+    final result = await _channel.invokeMethod<List<dynamic>>('installedApps');
+    return (result ?? const [])
+        .whereType<Map>()
+        .map((item) => {
+              'packageName': item['packageName']?.toString() ?? '',
+              'label': item['label']?.toString() ?? '',
+            })
+        .where((item) => item['packageName']!.isNotEmpty)
+        .toList();
+  }
+
   Future<void> prepare() async {
     await _channel.invokeMethod<bool>('prepareVpn');
   }
@@ -25,12 +37,17 @@ class AndroidVpn {
     description: 'Mihomo config validation',
   );
 
-  Future<void> start(String configPath, {required String sessionId}) async {
+  Future<void> start(
+    String configPath, {
+    required String sessionId,
+    List<String> excludedApps = const [],
+  }) async {
     try {
       await awaitWithTimeout(
         _channel.invokeMethod<void>('startVpn', {
           'configPath': configPath,
           'sessionId': sessionId,
+          'excludedApps': excludedApps,
         }),
         timeout: startTimeout,
         description: 'Mihomo VPN service start',
