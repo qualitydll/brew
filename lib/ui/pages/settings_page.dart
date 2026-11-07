@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import '../../core/system_proxy.dart';
 import '../../core/routing_rules.dart';
 import '../../state/app_state.dart';
-import 'experiment_lab_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -138,6 +137,50 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      _Section(
+        icon: Icons.alt_route_rounded,
+        title: 'Маршрутизация доменов',
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Добавить правило'),
+            subtitle: Text(
+              s.domainRules.isEmpty
+                  ? 'Домен или зона (.ru) → VPN, напрямую или блокировать'
+                  : '${s.domainRules.length} правил — раньше правил подписки',
+            ),
+            trailing: const Icon(Icons.add_rounded),
+            onTap: () async {
+              try {
+                final actions = await state.routingActionsForActiveProfile();
+                if (!context.mounted) return;
+                await showDialog<void>(
+                  context: context,
+                  builder: (_) => _DomainRuleDialog(
+                    actions: actions,
+                    onSave: state.addDomainRule,
+                  ),
+                );
+              } catch (e) {
+                if (context.mounted) showSnack(context, 'Не удалось открыть правила: $e');
+              }
+            },
+          ),
+          if (s.domainRules.isNotEmpty)
+            for (final rule in s.domainRules)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 12),
+                leading: const Icon(Icons.language_rounded),
+                title: Text(rule),
+                trailing: IconButton(
+                  tooltip: 'Удалить правило',
+                  onPressed: () => state.removeDomainRule(rule),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+        ],
+      ),
       if (Platform.isWindows)
         _Section(
           icon: Icons.power_settings_new_rounded,
@@ -215,46 +258,6 @@ class SettingsPage extends StatelessWidget {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Маршрутизация доменов'),
-            subtitle: Text(
-              s.domainRules.isEmpty
-                  ? 'Сайт → через группу, напрямую или блокировать'
-                  : '${s.domainRules.length} правил — раньше правил подписки',
-            ),
-            trailing: const Icon(Icons.add_rounded),
-            onTap: () async {
-              try {
-                final actions = await state.routingActionsForActiveProfile();
-                if (!context.mounted) return;
-                await showDialog<void>(
-                  context: context,
-                  builder: (_) => _DomainRuleDialog(
-                    actions: actions,
-                    onSave: state.addDomainRule,
-                  ),
-                );
-              } catch (e) {
-                if (context.mounted) {
-                  showSnack(context, 'Не удалось открыть правила: $e');
-                }
-              }
-            },
-          ),
-          if (s.domainRules.isNotEmpty)
-            for (final rule in s.domainRules)
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 12),
-                leading: const Icon(Icons.language_rounded),
-                title: Text(rule),
-                trailing: IconButton(
-                  tooltip: 'Удалить правило',
-                  onPressed: () => state.removeDomainRule(rule),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
             title: const Text('Правила вручную · Advanced'),
             subtitle: Text(
               s.userRules.trim().isEmpty
@@ -313,29 +316,6 @@ class SettingsPage extends StatelessWidget {
               Clipboard.setData(ClipboardData(text: state.dataDir));
               showSnack(context, 'Путь скопирован');
             },
-          ),
-        ],
-      ),
-      _Section(
-        icon: Icons.science_rounded,
-        title: 'Эксперименты',
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.science_outlined),
-            title: const Text('Brew Network Lab'),
-            subtitle: const Text('Адаптивная диагностика доступности, задержки и маршрута'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Brew Network Lab')),
-                  body: const SafeArea(
-                    child: ExperimentLabPage(showHeader: false),
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -436,7 +416,7 @@ class _DomainRuleDialogState extends State<_DomainRuleDialog> {
               decoration: const InputDecoration(
                 labelText: 'Домен',
                 hintText: 'example.com',
-                helperText: 'Без https://, пути и параметров',
+                helperText: 'Домен или зона вроде .ru; без https:// и пути',
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (_) => _save(),
