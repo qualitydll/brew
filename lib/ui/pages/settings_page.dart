@@ -397,9 +397,8 @@ Future<List<String>> _windowsRunningApps() async {
     ],
   );
   if (result.exitCode != 0) {
-    throw StateError((result.stderr as String).trim().isEmpty
-        ? 'PowerShell не смог получить список приложений.'
-        : (result.stderr as String).trim());
+    final error = (result.stderr as String).trim();
+    throw StateError(error.isEmpty ? 'PowerShell не смог получить список приложений.' : error);
   }
   final output = (result.stdout as String).trim();
   if (output.isEmpty) return const [];
@@ -407,7 +406,108 @@ Future<List<String>> _windowsRunningApps() async {
   final names = decoded is List ? decoded : [decoded];
   return names
       .map((name) => name.toString().trim())
-      .where((name) => RegExp(r'^[A-Za-z0-9_. -]+
+      .where((name) => RegExp(r'^[A-Za-z0-9_. -]+$').hasMatch(name))
+      .toSet()
+      .toList()
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
+
+Future<void> _showWindowsAppPicker(
+  BuildContext context,
+  AppState state,
+  List<String> actions,
+) async {
+  final appsFuture = _windowsRunningApps();
+  final selected = <String>{};
+  String action = actions.contains('DIRECT') ? 'DIRECT' : actions.first;
+  for (final rule in state.settings.appRules) {
+    final parts = rule.split(',');
+    if (parts.length == 3 && parts.first == 'PROCESS-NAME') {
+      selected.add(parts[1].replaceFirst(RegExp(r'\.exe$', caseSensitive: false), ''));
+    }
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Приложения Windows'),
+        content: SizedBox(
+          width: 460,
+          height: 520,
+          child: Column(
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: action,
+                decoration: const InputDecoration(labelText: 'Маршрут'),
+                items: [
+                  for (final item in actions)
+                    DropdownMenuItem(value: item, child: Text(actionLabel(item))),
+                ],
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => action = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: FutureBuilder<List<String>>(
+                  future: appsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Text('Не удалось получить приложения: \${snapshot.error}');
+                    }
+                    final apps = snapshot.data ?? const [];
+                    if (apps.isEmpty) {
+                      return const Text('Нет запущенных приложений с видимыми окнами. Запустите нужную программу и откройте этот список снова.');
+                    }
+                    return ListView(
+                      children: [
+                        for (final app in apps)
+                          CheckboxListTile(
+                            value: selected.contains(app),
+                            title: Text(app),
+                            subtitle: Text('$app.exe'),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            onChanged: (checked) => setDialogState(() {
+                              if (checked == true) {
+                                selected.add(app);
+                              } else {
+                                selected.remove(app);
+                              }
+                            }),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final rules = selected
+                  .map((name) => 'PROCESS-NAME,$name.exe,$action')
+                  .toList();
+              await state.setAppRules(rules);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _showAndroidAppPicker(BuildContext context, AppState state) async {
   final appsFuture = state.androidVpn.installedApps();
   final selected = state.settings.excludedApps.toSet();
   await showDialog<void>(
@@ -425,7 +525,7 @@ Future<List<String>> _windowsRunningApps() async {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Text('Не удалось получить список приложений: ${snapshot.error}');
+                return Text('Не удалось получить список приложений: \${snapshot.error}');
               }
               final apps = snapshot.data ?? const [];
               if (apps.isEmpty) return const Text('Не найдено приложений с ярлыками запуска.');
