@@ -456,7 +456,7 @@ Future<void> _showWindowsAppPicker(
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (snapshot.hasError) {
-                      return Text('Не удалось получить приложения: \${snapshot.error}');
+                      return Text('Не удалось получить приложения: ${snapshot.error}');
                     }
                     final apps = snapshot.data ?? const [];
                     if (apps.isEmpty) {
@@ -525,7 +525,7 @@ Future<void> _showAndroidAppPicker(BuildContext context, AppState state) async {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Text('Не удалось получить список приложений: \${snapshot.error}');
+                return Text('Не удалось получить список приложений: ${snapshot.error}');
               }
               final apps = snapshot.data ?? const [];
               if (apps.isEmpty) return const Text('Не найдено приложений с ярлыками запуска.');
