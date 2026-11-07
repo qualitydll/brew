@@ -22,6 +22,44 @@ void main() {
     expect((config['dns'] as Map<String, dynamic>)['enable'], isTrue);
   });
 
+  test('process rules enable strict process matching', () {
+    final config = applyCoreOptions(
+      const {'rules': ['MATCH,PROXY']},
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: true,
+        allowLan: false,
+        userRules: ['PROCESS-NAME,chrome.exe,DIRECT'],
+      ),
+    );
+
+    expect(config['find-process-mode'], 'strict');
+    expect(config['rules'], [
+      'PROCESS-NAME,chrome.exe,DIRECT',
+      'MATCH,PROXY',
+    ]);
+  });
+
+  test('process matching remains disabled without process rules', () {
+    final config = applyCoreOptions(
+      const {'rules': ['MATCH,PROXY']},
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: true,
+        allowLan: false,
+        userRules: ['DOMAIN-SUFFIX,example.com,DIRECT'],
+      ),
+    );
+
+    expect(config['find-process-mode'], 'off');
+  });
+
   test('Mihomo provider rules survive subscription parsing and config setup', () {
     const subscription = '''
 mixed-port: 7890
