@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "prepareVpn" -> prepareVpn(result)
+                    "installedApps" -> result.success(installedLauncherApps())
                     "validateConfig" -> validateConfig(call.argument("path"), result)
                     "mihomoAction" -> invokeMihomoAction(
                         call.argument("method"),
@@ -33,12 +34,29 @@ class MainActivity : FlutterActivity() {
                     "startVpn" -> startVpn(
                         call.argument("configPath"),
                         call.argument("sessionId"),
+                        call.argument("excludedApps"),
                         result,
                     )
                     "stopVpn" -> stopVpn(call.argument("sessionId"), result)
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun installedLauncherApps(): List<Map<String, String>> {
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return packageManager.queryIntentActivities(launcher, 0)
+            .mapNotNull { resolveInfo ->
+                val app = resolveInfo.activityInfo?.applicationInfo ?: return@mapNotNull null
+                val packageName = app.packageName
+                if (packageName == this.packageName) return@mapNotNull null
+                mapOf(
+                    "packageName" to packageName,
+                    "label" to packageManager.getApplicationLabel(app).toString(),
+                )
+            }
+            .distinctBy { it["packageName"] }
+            .sortedBy { it["label"]?.lowercase() ?: "" }
     }
 
     private fun prepareVpn(result: MethodChannel.Result) {
@@ -141,6 +159,7 @@ class MainActivity : FlutterActivity() {
     private fun startVpn(
         configPath: String?,
         sessionId: String?,
+        excludedApps: List<String>?,
         result: MethodChannel.Result,
     ) {
         if (configPath.isNullOrBlank()) {
@@ -159,6 +178,10 @@ class MainActivity : FlutterActivity() {
             .setAction(MihomoVpnService.ACTION_START)
             .putExtra(MihomoVpnService.EXTRA_CONFIG_PATH, configPath)
             .putExtra(MihomoVpnService.EXTRA_SESSION_ID, sessionId)
+            .putStringArrayListExtra(
+                MihomoVpnService.EXTRA_EXCLUDED_APPS,
+                ArrayList(excludedApps ?: emptyList()),
+            )
             .putExtra(MihomoVpnService.EXTRA_RESULT, resultReceiver(result))
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
