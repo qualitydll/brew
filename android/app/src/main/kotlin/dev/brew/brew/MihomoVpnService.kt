@@ -74,7 +74,10 @@ class MihomoVpnService : VpnService() {
                             activeSessionId = null
                         }
                         activeSessionId = sessionId
-                        startMihomo(configPath ?: error("Mihomo config path is missing."))
+                        startMihomo(
+                            configPath ?: error("Mihomo config path is missing."),
+                            intent.getStringArrayListExtra(EXTRA_EXCLUDED_APPS) ?: arrayListOf(),
+                        )
                         receiver?.send(Activity.RESULT_OK, Bundle())
                     } catch (error: Throwable) {
                         val message = try {
@@ -137,7 +140,7 @@ class MihomoVpnService : VpnService() {
         }
     }
 
-    private fun startMihomo(configPath: String) {
+    private fun startMihomo(configPath: String, excludedApps: List<String>) {
         MihomoRuntime.load(this)
 
         val configFile = File(configPath).canonicalFile
@@ -181,6 +184,10 @@ class MihomoVpnService : VpnService() {
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     setMetered(false)
+                }
+                // Excluded packages bypass the VPN and use the device network.
+                excludedApps.forEach { packageName ->
+                    runCatching { addDisallowedApplication(packageName) }
                 }
             }
             .addAddress(IPV4_ADDRESS, 30)
@@ -299,6 +306,7 @@ class MihomoVpnService : VpnService() {
         const val ACTION_STOP = "dev.brew.brew.action.STOP_VPN"
         const val EXTRA_CONFIG_PATH = "configPath"
         const val EXTRA_SESSION_ID = "sessionId"
+        const val EXTRA_EXCLUDED_APPS = "excludedApps"
         const val EXTRA_RESULT = "resultReceiver"
         const val EXTRA_ERROR = "error"
 
