@@ -515,6 +515,7 @@ class AppState extends ChangeNotifier {
         await androidVpn.start(
           configFile.path,
           sessionId: androidSessionId,
+          excludedApps: settings.excludedApps,
         );
         androidServiceStarted = true;
         await _waitForApi(api);
@@ -878,6 +879,12 @@ class AppState extends ChangeNotifier {
     settings.userRules = rules;
     notifyListeners();
     if (isConnected) await reconnect();
+  }
+
+  Future<void> setExcludedApps(List<String> packages) async {
+    settings.excludedApps = packages.toSet().toList()..sort();
+    notifyListeners();
+    if (isConnected && Platform.isAndroid) await reconnect();
   }
 
   Future<void> setTun(bool v) async {
