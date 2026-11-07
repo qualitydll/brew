@@ -76,7 +76,7 @@ class MihomoVpnService : VpnService() {
                         activeSessionId = sessionId
                         startMihomo(
                             configPath ?: error("Mihomo config path is missing."),
-                            intent.getStringArrayListExtra(EXTRA_EXCLUDED_APPS) ?: arrayListOf(),
+                            intent?.getStringArrayListExtra(EXTRA_EXCLUDED_APPS) ?: arrayListOf(),
                         )
                         receiver?.send(Activity.RESULT_OK, Bundle())
                     } catch (error: Throwable) {
