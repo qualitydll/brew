@@ -7,15 +7,24 @@ String normalizeDomainRule(
   required String action,
   required List<String> allowedActions,
 }) {
-  final domain = input.trim().toLowerCase().replaceFirst(RegExp(r'\.$'), '');
+  var domain = input.trim().toLowerCase();
+  final zoneRule = domain.startsWith('.') || domain.startsWith('*.');
+
+  // Strip an optional wildcard/dot prefix and a trailing DNS root dot.
+  domain = domain.replaceFirst(RegExp(r'^\*?\.'), '');
+  domain = domain.replaceFirst(RegExp(r'\.$'), '');
+
   final labels = domain.split('.');
-  final valid = labels.length >= 2 &&
+  final validLabels = labels.isNotEmpty &&
       labels.every(
         (label) =>
             label.length <= 63 &&
             RegExp(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$').hasMatch(label),
-      ) &&
-      domain.length <= 253;
+      );
+  final isZone =
+      zoneRule && labels.length == 1 && RegExp(r'^[a-z]{2,}$').hasMatch(domain);
+  final valid =
+      validLabels && (labels.length >= 2 || isZone) && domain.length <= 253;
   if (!valid) {
     throw FormatException(
       'Введите домен без схемы и пути, например example.com.',
@@ -24,7 +33,7 @@ String normalizeDomainRule(
   if (!allowedActions.contains(action)) {
     throw ArgumentError.value(action, 'action');
   }
-  return '${includeSubdomains ? 'DOMAIN-SUFFIX' : 'DOMAIN'},$domain,$action';
+  return '${(includeSubdomains || isZone) ? 'DOMAIN-SUFFIX' : 'DOMAIN'},$domain,$action';
 }
 
 List<String> routingActionsFor(ParsedSubscription subscription) {

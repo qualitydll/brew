@@ -27,6 +27,28 @@ void main() {
     );
   });
 
+
+  test('whole TLD zones such as .ru match the zone and all subdomains', () {
+    expect(
+      normalizeDomainRule(
+        '.ru',
+        includeSubdomains: false,
+        action: 'DIRECT',
+        allowedActions: const ['DIRECT', 'REJECT'],
+      ),
+      'DOMAIN-SUFFIX,ru,DIRECT',
+    );
+    expect(
+      normalizeDomainRule(
+        '*.com',
+        includeSubdomains: true,
+        action: 'PROXY',
+        allowedActions: const ['PROXY', 'DIRECT'],
+      ),
+      'DOMAIN-SUFFIX,com,PROXY',
+    );
+  });
+
   test('rejects URLs and actions not present in the profile', () {
     expect(
       () => normalizeDomainRule(
