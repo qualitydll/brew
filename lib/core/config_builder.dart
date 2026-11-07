@@ -115,7 +115,11 @@ Map<String, dynamic> applyCoreOptions(
   cfg['secret'] = o.secret;
   cfg['unified-delay'] = true;
   cfg['tcp-concurrent'] = true;
-  cfg['find-process-mode'] = 'off';
+  final hasProcessRules = o.userRules.any(
+    (rule) => rule.trimLeft().toUpperCase().startsWith('PROCESS-NAME,') ||
+        rule.trimLeft().toUpperCase().startsWith('PROCESS-PATH,'),
+  );
+  cfg['find-process-mode'] = hasProcessRules ? 'strict' : 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
   // SNI Spoofing: replace the servername of every proxy so the TLS
