@@ -129,6 +129,19 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
           ],
+          if (Platform.isAndroid)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.apps_rounded),
+              title: const Text('Приложения вне VPN'),
+              subtitle: Text(
+                s.excludedApps.isEmpty
+                    ? 'Все приложения используют VPN'
+                    : '${s.excludedApps.length} приложений используют прямое подключение',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showAndroidAppPicker(context, state),
+            ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Разрешить подключения из локальной сети'),
@@ -345,6 +358,70 @@ class SettingsPage extends StatelessWidget {
       ],
     );
   }
+}
+
+
+Future<void> _showAndroidAppPicker(BuildContext context, AppState state) async {
+  final appsFuture = state.androidVpn.installedApps();
+  final selected = state.settings.excludedApps.toSet();
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Приложения вне VPN'),
+        content: SizedBox(
+          width: 460,
+          height: 520,
+          child: FutureBuilder<List<Map<String, String>>>(
+            future: appsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Text('Не удалось получить список приложений: ${snapshot.error}');
+              }
+              final apps = snapshot.data ?? const [];
+              if (apps.isEmpty) return const Text('Не найдено приложений с ярлыками запуска.');
+              return ListView.builder(
+                itemCount: apps.length,
+                itemBuilder: (context, index) {
+                  final app = apps[index];
+                  final packageName = app['packageName']!;
+                  return CheckboxListTile(
+                    value: selected.contains(packageName),
+                    title: Text(app['label']!.isEmpty ? packageName : app['label']!),
+                    subtitle: Text(packageName),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (checked) => setDialogState(() {
+                      if (checked == true) {
+                        selected.add(packageName);
+                      } else {
+                        selected.remove(packageName);
+                      }
+                    }),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await state.setExcludedApps(selected.toList());
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _DomainRuleDialog extends StatefulWidget {
