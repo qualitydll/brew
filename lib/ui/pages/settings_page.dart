@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../core/system_proxy.dart';
 import '../../core/routing_rules.dart';
+import '../../core/windows_apps.dart';
 import '../../state/app_state.dart';
-import 'experiment_lab_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -213,12 +213,18 @@ class SettingsPage extends StatelessWidget {
               }
             },
           ),
+        ],
+      ),
+      _Section(
+        icon: Icons.alt_route_rounded,
+        title: 'Маршрутизация',
+        children: [
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Маршрутизация доменов'),
             subtitle: Text(
               s.domainRules.isEmpty
-                  ? 'Сайт → через группу, напрямую или блокировать'
+                  ? 'Сайт или зона (например .ru) → через группу, напрямую или блокировать'
                   : '${s.domainRules.length} правил — раньше правил подписки',
             ),
             trailing: const Icon(Icons.add_rounded),
@@ -253,6 +259,74 @@ class SettingsPage extends StatelessWidget {
                   icon: const Icon(Icons.close_rounded),
                 ),
               ),
+          const SizedBox(height: 4),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Маршрутизация приложений'),
+            subtitle: Text(
+              Platform.isAndroid
+                  ? (s.bypassApps.isEmpty
+                        ? 'Выберите приложение — его трафик пойдёт в обход VPN'
+                        : '${s.bypassApps.length} прил. в обход VPN')
+                  : (s.appRules.isEmpty
+                        ? 'Выберите приложение — его трафик пойдёт в обход VPN'
+                        : '${s.appRules.length} правил — раньше правил подписки'),
+            ),
+            trailing: const Icon(Icons.add_rounded),
+            onTap: () async {
+              if (Platform.isAndroid) {
+                await showDialog<void>(
+                  context: context,
+                  builder: (_) => _AppPickerDialogAndroid(state: state),
+                );
+              } else {
+                try {
+                  final actions = await state.routingActionsForActiveProfile();
+                  if (!context.mounted) return;
+                  await showDialog<void>(
+                    context: context,
+                    builder: (_) => _AppRuleDialogWindows(
+                      actions: actions,
+                      onSave: state.addAppRule,
+                    ),
+                  );
+                } catch (e) {
+                  if (context.mounted) {
+                    showSnack(context, 'Не удалось открыть правила: $e');
+                  }
+                }
+              }
+            },
+          ),
+          if (Platform.isAndroid)
+            for (final entry in s.bypassApps)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 12),
+                leading: const Icon(Icons.apps_rounded),
+                title: Text(state.bypassAppLabel(entry)),
+                trailing: IconButton(
+                  tooltip: 'Убрать приложение',
+                  onPressed: () =>
+                      state.removeBypassApp(entry.split('::').first),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              )
+          else
+            for (final rule in s.appRules)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 12),
+                leading: const Icon(Icons.apps_rounded),
+                title: Text(processNameFromAppRule(rule) ?? rule),
+                subtitle: Text(rule),
+                trailing: IconButton(
+                  tooltip: 'Удалить правило',
+                  onPressed: () => state.removeAppRule(rule),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+          const SizedBox(height: 4),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Правила вручную · Advanced'),
@@ -313,29 +387,6 @@ class SettingsPage extends StatelessWidget {
               Clipboard.setData(ClipboardData(text: state.dataDir));
               showSnack(context, 'Путь скопирован');
             },
-          ),
-        ],
-      ),
-      _Section(
-        icon: Icons.science_rounded,
-        title: 'Эксперименты',
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.science_outlined),
-            title: const Text('Brew Network Lab'),
-            subtitle: const Text('Адаптивная диагностика доступности, задержки и маршрута'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Brew Network Lab')),
-                  body: const SafeArea(
-                    child: ExperimentLabPage(showHeader: false),
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -488,6 +539,306 @@ class _DomainRuleDialogState extends State<_DomainRuleDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Text('Добавить'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AppRuleDialogWindows extends StatefulWidget {
+  const _AppRuleDialogWindows({
+    required this.actions,
+    required this.onSave,
+  });
+
+  final List<String> actions;
+  final Future<void> Function(String rule) onSave;
+
+  @override
+  State<_AppRuleDialogWindows> createState() => _AppRuleDialogWindowsState();
+}
+
+class _AppRuleDialogWindowsState extends State<_AppRuleDialogWindows> {
+  final _process = TextEditingController();
+  late String _action = widget.actions.contains('DIRECT')
+      ? 'DIRECT'
+      : widget.actions.first;
+  String? _error;
+  bool _saving = false;
+  bool _loadingApps = true;
+  List<WindowsAppEntry> _runningApps = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    listRunningWindowsApps().then((apps) {
+      if (!mounted) return;
+      setState(() {
+        _runningApps = apps;
+        _loadingApps = false;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _process.dispose();
+    super.dispose();
+  }
+
+  Future<void> _browse() async {
+    final name = await pickWindowsExecutableName();
+    if (name != null) setState(() => _process.text = name);
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _error = null;
+      _saving = true;
+    });
+    try {
+      final rule = normalizeAppRule(
+        _process.text,
+        action: _action,
+        allowedActions: widget.actions,
+      );
+      await widget.onSave(rule);
+      if (mounted) Navigator.pop(context);
+    } on FormatException catch (e) {
+      setState(() => _error = e.message.toString());
+    } on ArgumentError catch (e) {
+      setState(() => _error = e.message.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Маршрутизация приложения'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _process,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Приложение',
+                      hintText: 'steam.exe',
+                      helperText: 'Имя исполняемого файла',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _save(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: 'Выбрать .exe',
+                  onPressed: _browse,
+                  icon: const Icon(Icons.folder_open_rounded),
+                ),
+              ],
+            ),
+            if (_loadingApps)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: LinearProgressIndicator(),
+              )
+            else if (_runningApps.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Запущенные сейчас',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final app in _runningApps)
+                    ActionChip(
+                      label: Text(app.title),
+                      onPressed: () =>
+                          setState(() => _process.text = app.processName),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _action,
+              decoration: const InputDecoration(
+                labelText: 'Действие',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final action in widget.actions)
+                  DropdownMenuItem(value: action, child: Text(actionLabel(action))),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _action = value);
+              },
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(_error!, style: TextStyle(color: scheme.error)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Добавить'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AppPickerDialogAndroid extends StatefulWidget {
+  const _AppPickerDialogAndroid({required this.state});
+  final AppState state;
+
+  @override
+  State<_AppPickerDialogAndroid> createState() =>
+      _AppPickerDialogAndroidState();
+}
+
+class _AppPickerDialogAndroidState extends State<_AppPickerDialogAndroid> {
+  final _search = TextEditingController();
+  bool _loading = true;
+  String? _error;
+  List<Map<String, String>> _apps = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.androidVpn
+        .listInstalledApps()
+        .then((apps) {
+          apps.sort(
+            (a, b) =>
+                (a['label'] ?? '').toLowerCase().compareTo(
+                  (b['label'] ?? '').toLowerCase(),
+                ),
+          );
+          if (!mounted) return;
+          setState(() {
+            _apps = apps;
+            _loading = false;
+          });
+        })
+        .catchError((Object e) {
+          if (!mounted) return;
+          setState(() {
+            _error = 'Не удалось получить список приложений: $e';
+            _loading = false;
+          });
+        });
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _search.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? _apps
+        : _apps
+              .where(
+                (app) =>
+                    (app['label'] ?? '').toLowerCase().contains(query) ||
+                    (app['package'] ?? '').toLowerCase().contains(query),
+              )
+              .toList();
+    return AlertDialog(
+      title: const Text('Маршрутизация приложений'),
+      content: SizedBox(
+        width: 440,
+        height: 480,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Отмеченные приложения будут работать в обход VPN.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _search,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search_rounded),
+                hintText: 'Поиск приложения',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(child: Text(_error!))
+                  : filtered.isEmpty
+                  ? const Center(child: Text('Ничего не найдено'))
+                  : ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final app = filtered[i];
+                        final pkg = app['package'] ?? '';
+                        final label = app['label'] ?? pkg;
+                        final checked = widget.state.bypassPackages.contains(
+                          pkg,
+                        );
+                        return CheckboxListTile(
+                          dense: true,
+                          value: checked,
+                          title: Text(label),
+                          subtitle: Text(pkg),
+                          onChanged: (value) async {
+                            if (value ?? false) {
+                              await widget.state.addBypassApp(pkg, label);
+                            } else {
+                              await widget.state.removeBypassApp(pkg);
+                            }
+                            if (mounted) setState(() {});
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Готово'),
         ),
       ],
     );

@@ -4,7 +4,6 @@ import '../../state/app_state.dart';
 import '../../state/models.dart';
 import '../widgets/common.dart';
 import '../widgets/protocol_badges.dart';
-import 'experiment_lab_page.dart';
 
 class ServersPage extends StatelessWidget {
   const ServersPage({super.key});
@@ -126,22 +125,6 @@ class _ProxyOverview extends StatelessWidget {
                     style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Tooltip(
-              message: 'Открыть диагностику сети',
-              child: FilledButton.tonalIcon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('Brew Network Lab')),
-                      body: const SafeArea(child: ExperimentLabPage(showHeader: false)),
-                    ),
-                  ),
-                ),
-                icon: const Icon(Icons.monitor_heart_outlined),
-                label: const Text('Диагностика'),
               ),
             ),
           ],

@@ -115,7 +115,14 @@ Map<String, dynamic> applyCoreOptions(
   cfg['secret'] = o.secret;
   cfg['unified-delay'] = true;
   cfg['tcp-concurrent'] = true;
-  cfg['find-process-mode'] = 'off';
+  // App-based routing on Windows matches on PROCESS-NAME, which only works
+  // when Mihomo actually resolves the owning process per connection. Android
+  // excludes apps at the VpnService level instead (see AndroidVpn.start), so
+  // it never needs this — and can't reliably use it from inside the app
+  // sandbox anyway.
+  final hasProcessRules = Platform.isWindows &&
+      o.userRules.any((rule) => rule.toUpperCase().startsWith('PROCESS-NAME'));
+  cfg['find-process-mode'] = hasProcessRules ? 'strict' : 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
   // SNI Spoofing: replace the servername of every proxy so the TLS

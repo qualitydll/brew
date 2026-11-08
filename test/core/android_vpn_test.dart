@@ -78,4 +78,45 @@ void main() {
     expect(calls.map((call) => call.method).toList(), ['startVpn', 'stopVpn']);
     expect((calls[1].arguments as Map)['sessionId'], 'failed-session');
   });
+
+  test('installed apps are mapped to package/label and blanks dropped', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'listInstalledApps') {
+        return [
+          {'package': 'com.whatsapp', 'label': 'WhatsApp'},
+          {'package': '', 'label': 'No package'},
+          {'package': 'com.example.app'},
+        ];
+      }
+      return null;
+    });
+    final vpn = AndroidVpn(channel: channel);
+
+    final apps = await vpn.listInstalledApps();
+
+    expect(apps, [
+      {'package': 'com.whatsapp', 'label': 'WhatsApp'},
+      {'package': 'com.example.app', 'label': ''},
+    ]);
+  });
+
+  test('start forwards disallowed packages for app-based routing', () async {
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return null;
+    });
+    final vpn = AndroidVpn(channel: channel);
+
+    await vpn.start(
+      'profile/config.yaml',
+      sessionId: 'session-with-bypass',
+      disallowedPackages: ['com.whatsapp', 'com.example.app'],
+    );
+
+    expect(
+      (calls.single.arguments as Map)['disallowedPackages'],
+      ['com.whatsapp', 'com.example.app'],
+    );
+  });
 }

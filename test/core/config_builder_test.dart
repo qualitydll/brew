@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:brew/core/config_builder.dart';
 import 'package:brew/core/link_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -222,4 +224,40 @@ rules:
     );
   });
 
+  test(
+    'find-process-mode only turns on for PROCESS-NAME rules on Windows',
+    () {
+      final withoutAppRule = applyCoreOptions(
+        const <String, dynamic>{},
+        const CoreOptions(
+          mixedPort: 7890,
+          apiPort: 9097,
+          secret: 'test-secret',
+          mode: 'rule',
+          tun: false,
+          allowLan: false,
+        ),
+      );
+      expect(withoutAppRule['find-process-mode'], 'off');
+
+      final withAppRule = applyCoreOptions(
+        const <String, dynamic>{},
+        const CoreOptions(
+          mixedPort: 7890,
+          apiPort: 9097,
+          secret: 'test-secret',
+          mode: 'rule',
+          tun: false,
+          allowLan: false,
+          userRules: ['PROCESS-NAME,steam.exe,DIRECT'],
+        ),
+      );
+      // App-based routing via PROCESS-NAME only works (and is only ever
+      // added by the settings UI) on Windows; elsewhere it stays off.
+      expect(
+        withAppRule['find-process-mode'],
+        Platform.isWindows ? 'strict' : 'off',
+      );
+    },
+  );
 }

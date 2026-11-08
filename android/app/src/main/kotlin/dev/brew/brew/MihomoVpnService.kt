@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
@@ -59,6 +60,9 @@ class MihomoVpnService : VpnService() {
                 startForegroundCompat()
                 val configPath = intent.getStringExtra(EXTRA_CONFIG_PATH)
                 val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
+                val disallowedPackages =
+                    intent.getStringArrayListExtra(EXTRA_DISALLOWED_PACKAGES)
+                        ?: arrayListOf()
                 if (sessionId.isNullOrBlank()) {
                     receiver?.send(
                         Activity.RESULT_CANCELED,
@@ -74,7 +78,10 @@ class MihomoVpnService : VpnService() {
                             activeSessionId = null
                         }
                         activeSessionId = sessionId
-                        startMihomo(configPath ?: error("Mihomo config path is missing."))
+                        startMihomo(
+                            configPath ?: error("Mihomo config path is missing."),
+                            disallowedPackages,
+                        )
                         receiver?.send(Activity.RESULT_OK, Bundle())
                     } catch (error: Throwable) {
                         val message = try {
@@ -137,7 +144,7 @@ class MihomoVpnService : VpnService() {
         }
     }
 
-    private fun startMihomo(configPath: String) {
+    private fun startMihomo(configPath: String, disallowedPackages: List<String>) {
         MihomoRuntime.load(this)
 
         val configFile = File(configPath).canonicalFile
@@ -189,6 +196,19 @@ class MihomoVpnService : VpnService() {
             .addAddress(IPV6_ADDRESS, 126)
             .addRoute("::", 0)
             .addDnsServer(IPV6_DNS)
+            .apply {
+                // App-based routing: these apps' traffic bypasses the VPN
+                // tunnel entirely and goes out over the normal network. An
+                // app that was uninstalled since the rule was saved is
+                // silently skipped rather than failing the whole connection.
+                for (pkg in disallowedPackages) {
+                    try {
+                        addDisallowedApplication(pkg)
+                    } catch (error: PackageManager.NameNotFoundException) {
+                        // Ignore: the app is no longer installed.
+                    }
+                }
+            }
             .establish() ?: error("Android refused to establish the VPN interface.")
 
         val fd = tun.detachFd()
@@ -299,6 +319,7 @@ class MihomoVpnService : VpnService() {
         const val ACTION_STOP = "dev.brew.brew.action.STOP_VPN"
         const val EXTRA_CONFIG_PATH = "configPath"
         const val EXTRA_SESSION_ID = "sessionId"
+        const val EXTRA_DISALLOWED_PACKAGES = "disallowedPackages"
         const val EXTRA_RESULT = "resultReceiver"
         const val EXTRA_ERROR = "error"
 

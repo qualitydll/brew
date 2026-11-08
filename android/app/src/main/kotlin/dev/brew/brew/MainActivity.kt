@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "prepareVpn" -> prepareVpn(result)
+                    "listInstalledApps" -> listInstalledApps(result)
                     "validateConfig" -> validateConfig(call.argument("path"), result)
                     "mihomoAction" -> invokeMihomoAction(
                         call.argument("method"),
@@ -33,6 +34,7 @@ class MainActivity : FlutterActivity() {
                     "startVpn" -> startVpn(
                         call.argument("configPath"),
                         call.argument("sessionId"),
+                        call.argument<List<String>>("disallowedPackages"),
                         result,
                     )
                     "stopVpn" -> stopVpn(call.argument("sessionId"), result)
@@ -59,6 +61,32 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(intent, VPN_PERMISSION_REQUEST)
     }
 
+
+    /// Lists launchable apps for the app-routing picker: package name + label.
+    /// Querying an implicit MAIN/LAUNCHER intent is exempt from Android 11+
+    /// package-visibility restrictions, so no extra permission is needed.
+    private fun listInstalledApps(result: MethodChannel.Result) {
+        try {
+            val pm = packageManager
+            val launcherIntent = Intent(Intent.ACTION_MAIN, null)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+            val resolved = pm.queryIntentActivities(launcherIntent, 0)
+            val seen = HashSet<String>()
+            val apps = resolved.mapNotNull { info ->
+                val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
+                if (pkg == packageName || !seen.add(pkg)) return@mapNotNull null
+                val label = try {
+                    info.loadLabel(pm).toString()
+                } catch (error: Throwable) {
+                    pkg
+                }
+                mapOf("package" to pkg, "label" to label)
+            }.sortedBy { (it["label"] as String).lowercase() }
+            result.success(apps)
+        } catch (error: Throwable) {
+            result.error("list_apps_failed", error.message ?: error.toString(), null)
+        }
+    }
 
     private fun invokeMihomoAction(
         method: String?,
@@ -141,6 +169,7 @@ class MainActivity : FlutterActivity() {
     private fun startVpn(
         configPath: String?,
         sessionId: String?,
+        disallowedPackages: List<String>?,
         result: MethodChannel.Result,
     ) {
         if (configPath.isNullOrBlank()) {
@@ -159,6 +188,10 @@ class MainActivity : FlutterActivity() {
             .setAction(MihomoVpnService.ACTION_START)
             .putExtra(MihomoVpnService.EXTRA_CONFIG_PATH, configPath)
             .putExtra(MihomoVpnService.EXTRA_SESSION_ID, sessionId)
+            .putStringArrayListExtra(
+                MihomoVpnService.EXTRA_DISALLOWED_PACKAGES,
+                ArrayList(disallowedPackages ?: emptyList()),
+            )
             .putExtra(MihomoVpnService.EXTRA_RESULT, resultReceiver(result))
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

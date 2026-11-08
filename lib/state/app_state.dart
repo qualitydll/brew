@@ -172,6 +172,50 @@ class AppState extends ChangeNotifier {
     if (isConnected) await reconnect();
   }
 
+  // ---------------------------------------------------- app-based routing
+
+  /// Windows-only: add a `PROCESS-NAME` rule built by [normalizeAppRule].
+  Future<void> addAppRule(String rule) async {
+    if (!settings.appRules.contains(rule)) {
+      settings.appRules = [...settings.appRules, rule];
+      notifyListeners();
+      if (isConnected) await reconnect();
+    }
+  }
+
+  Future<void> removeAppRule(String rule) async {
+    settings.appRules = settings.appRules.where((r) => r != rule).toList();
+    notifyListeners();
+    if (isConnected) await reconnect();
+  }
+
+  /// Android-only: apps whose traffic bypasses the VPN tunnel.
+  List<String> get bypassPackages => [
+    for (final entry in settings.bypassApps) entry.split('::').first,
+  ];
+
+  String bypassAppLabel(String entry) {
+    final parts = entry.split('::');
+    return parts.length > 1 && parts[1].isNotEmpty ? parts[1] : parts.first;
+  }
+
+  Future<void> addBypassApp(String package, String label) async {
+    if (package.isEmpty) return;
+    if (!bypassPackages.contains(package)) {
+      settings.bypassApps = [...settings.bypassApps, '$package::$label'];
+      notifyListeners();
+      if (isConnected) await reconnect();
+    }
+  }
+
+  Future<void> removeBypassApp(String package) async {
+    settings.bypassApps = settings.bypassApps
+        .where((entry) => entry.split('::').first != package)
+        .toList();
+    notifyListeners();
+    if (isConnected) await reconnect();
+  }
+
   bool get isConnected => status == ConnStatus.connected;
   bool get isBusy =>
       status == ConnStatus.connecting || status == ConnStatus.disconnecting;
@@ -420,6 +464,10 @@ class AppState extends ChangeNotifier {
     sniSpoofing: settings.sniSpoofing,
     userRules: [
       ...settings.domainRules,
+      // App rules are PROCESS-NAME based and only meaningful on Windows;
+      // Android excludes apps through androidVpn.start's disallowedPackages
+      // instead, so they're kept out of Android's Mihomo rule set.
+      if (Platform.isWindows) ...settings.appRules,
       ...settings.userRules
           .split('\n')
           .map((rule) => rule.trim())
@@ -515,6 +563,7 @@ class AppState extends ChangeNotifier {
         await androidVpn.start(
           configFile.path,
           sessionId: androidSessionId,
+          disallowedPackages: bypassPackages,
         );
         androidServiceStarted = true;
         await _waitForApi(api);

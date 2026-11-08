@@ -64,4 +64,42 @@ rules:
       containsAll(['Secure', 'DIRECT', 'REJECT']),
     );
   });
+
+  test('process names are normalized from bare names and full paths', () {
+    expect(normalizeProcessName('steam'), 'steam.exe');
+    expect(normalizeProcessName('Steam.EXE'), 'Steam.EXE');
+    expect(
+      normalizeProcessName(r'C:\Games\Steam\steam.exe'),
+      'steam.exe',
+    );
+    expect(normalizeProcessName('C:/Games/Steam/steam.exe'), 'steam.exe');
+    expect(() => normalizeProcessName('   '), throwsFormatException);
+  });
+
+  test('app rules build a PROCESS-NAME rule and default to bypass', () {
+    expect(
+      normalizeAppRule(
+        'steam.exe',
+        action: 'DIRECT',
+        allowedActions: const ['DIRECT', 'REJECT', 'PROXY'],
+      ),
+      'PROCESS-NAME,steam.exe,DIRECT',
+    );
+    expect(
+      () => normalizeAppRule(
+        'steam.exe',
+        action: 'PROXY',
+        allowedActions: const ['DIRECT'],
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('the process name can be read back from an app rule', () {
+    expect(
+      processNameFromAppRule('PROCESS-NAME,steam.exe,DIRECT'),
+      'steam.exe',
+    );
+    expect(processNameFromAppRule('DOMAIN-SUFFIX,example.com,DIRECT'), null);
+  });
 }

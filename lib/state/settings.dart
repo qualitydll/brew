@@ -53,6 +53,16 @@ class Settings {
   List<String> get domainRules => _prefs.getStringList('domainRules') ?? [];
   set domainRules(List<String> v) => _prefs.setStringList('domainRules', v);
 
+  /// Windows-only: raw Mihomo `PROCESS-NAME` rules for app-based routing.
+  List<String> get appRules => _prefs.getStringList('appRules') ?? [];
+  set appRules(List<String> v) => _prefs.setStringList('appRules', v);
+
+  /// Android-only: apps whose traffic bypasses the VPN tunnel entirely.
+  /// Each entry is stored as `<package>::<label>` so the settings screen can
+  /// show a friendly name without re-querying the package manager.
+  List<String> get bypassApps => _prefs.getStringList('bypassApps') ?? [];
+  set bypassApps(List<String> v) => _prefs.setStringList('bypassApps', v);
+
   List<String> get favoriteServers =>
       _prefs.getStringList('favoriteServers') ?? [];
   set favoriteServers(List<String> v) =>
