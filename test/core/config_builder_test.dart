@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:brew/core/config_builder.dart';
 import 'package:brew/core/link_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -199,7 +197,7 @@ rules:
   });
 
 
-  test('SNI spoofing is disabled by default and preserves original SNI', () {
+  test('WLS is disabled by default and preserves original SNI', () {
     const original = <String, dynamic>{
       'proxies': [
         {'name': 'TLS server', 'type': 'trojan', 'server': 'node.example', 'servername': 'real.example'},
@@ -224,40 +222,57 @@ rules:
     );
   });
 
-  test(
-    'find-process-mode only turns on for PROCESS-NAME rules on Windows',
-    () {
-      final withoutAppRule = applyCoreOptions(
-        const <String, dynamic>{},
-        const CoreOptions(
-          mixedPort: 7890,
-          apiPort: 9097,
-          secret: 'test-secret',
-          mode: 'rule',
-          tun: false,
-          allowLan: false,
-        ),
-      );
-      expect(withoutAppRule['find-process-mode'], 'off');
+  test('WLS changes only supported non-Reality TLS proxy fields', () {
+    final config = applyCoreOptions(
+      {
+        'proxies': [
+          {
+            'name': 'Reality node',
+            'type': 'vless',
+            'server': 'node.example',
+            'tls': true,
+            'servername': 'reality.example',
+            'reality-opts': {'public-key': 'key', 'short-id': 'abcd'},
+          },
+          {
+            'name': 'TLS node',
+            'type': 'vless',
+            'server': 'tls.example',
+            'tls': true,
+            'servername': 'original.example',
+          },
+          {
+            'name': 'Plain node',
+            'type': 'ss',
+            'server': 'plain.example',
+            'cipher': 'aes-128-gcm',
+            'password': 'secret',
+          },
+        ],
+      },
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+        wls: true,
+      ),
+    );
 
-      final withAppRule = applyCoreOptions(
-        const <String, dynamic>{},
-        const CoreOptions(
-          mixedPort: 7890,
-          apiPort: 9097,
-          secret: 'test-secret',
-          mode: 'rule',
-          tun: false,
-          allowLan: false,
-          userRules: ['PROCESS-NAME,steam.exe,DIRECT'],
-        ),
-      );
-      // App-based routing via PROCESS-NAME only works (and is only ever
-      // added by the settings UI) on Windows; elsewhere it stays off.
-      expect(
-        withAppRule['find-process-mode'],
-        Platform.isWindows ? 'strict' : 'off',
-      );
-    },
-  );
+    final proxies = config['proxies'] as List;
+    final reality = proxies[0] as Map;
+    final tls = proxies[1] as Map;
+    final plain = proxies[2] as Map;
+
+    expect(reality['servername'], 'reality.example');
+    expect(tls['servername'], isA<String>());
+    expect((tls['servername'] as String).contains('.'), isTrue);
+    expect(tls['client-fingerprint'], 'chrome');
+    expect(plain.containsKey('servername'), isFalse);
+    expect(config.containsKey('tls'), isFalse);
+    expect(config.containsKey('sniffer'), isFalse);
+  });
+
 }

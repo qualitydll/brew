@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../state/app_state.dart';
 import '../state/models.dart';
+import 'pages/bypass_page.dart';
 import 'pages/home_page.dart';
 import 'pages/logs_page.dart';
 import 'pages/profiles_page.dart';
@@ -31,11 +32,12 @@ class _Dest {
 }
 
 const _dests = [
-  _Dest('Панель', Icons.dashboard_outlined, Icons.dashboard_rounded),
+  _Dest('Главная', Icons.bolt_outlined, Icons.bolt_rounded),
   _Dest('Прокси', Icons.hub_outlined, Icons.hub_rounded),
   _Dest('Профили', Icons.layers_outlined, Icons.layers_rounded),
+  _Dest('Обход', Icons.alt_route_outlined, Icons.alt_route_rounded),
   _Dest('Журнал', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
-  _Dest('Настройки', Icons.settings_outlined, Icons.settings_rounded),
+  _Dest('Настр.', Icons.tune_outlined, Icons.tune_rounded),
 ];
 
 class _ShellState extends State<Shell> {
@@ -54,7 +56,8 @@ class _ShellState extends State<Shell> {
     0 => const HomePage(),
     1 => const ServersPage(),
     2 => const ProfilesPage(),
-    3 => const LogsPage(),
+    3 => const BypassPage(),
+    4 => const LogsPage(),
     _ => const SettingsPage(),
   };
 

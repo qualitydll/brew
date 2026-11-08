@@ -53,16 +53,6 @@ class Settings {
   List<String> get domainRules => _prefs.getStringList('domainRules') ?? [];
   set domainRules(List<String> v) => _prefs.setStringList('domainRules', v);
 
-  /// Windows-only: raw Mihomo `PROCESS-NAME` rules for app-based routing.
-  List<String> get appRules => _prefs.getStringList('appRules') ?? [];
-  set appRules(List<String> v) => _prefs.setStringList('appRules', v);
-
-  /// Android-only: apps whose traffic bypasses the VPN tunnel entirely.
-  /// Each entry is stored as `<package>::<label>` so the settings screen can
-  /// show a friendly name without re-querying the package manager.
-  List<String> get bypassApps => _prefs.getStringList('bypassApps') ?? [];
-  set bypassApps(List<String> v) => _prefs.setStringList('bypassApps', v);
-
   List<String> get favoriteServers =>
       _prefs.getStringList('favoriteServers') ?? [];
   set favoriteServers(List<String> v) =>
@@ -80,9 +70,6 @@ class Settings {
 
   bool get allowLan => _prefs.getBool('allowLan') ?? false;
   set allowLan(bool v) => _prefs.setBool('allowLan', v);
-
-  bool get sniSpoofing => _prefs.getBool('sniSpoofing') ?? false;
-  set sniSpoofing(bool v) => _prefs.setBool('sniSpoofing', v);
 
   String? get corePath => _prefs.getString('corePath');
   set corePath(String? v) =>
@@ -104,4 +91,11 @@ class Settings {
   set autostartProtocol(String? v) => v == null
       ? _prefs.remove('autostartProtocol')
       : _prefs.setString('autostartProtocol', v);
+
+  // VPN bypass settings
+  List<String> get androidBypassApps => _prefs.getStringList('androidBypassApps') ?? [];
+  set androidBypassApps(List<String> v) => _prefs.setStringList('androidBypassApps', v);
+
+  List<String> get windowsBypassProcesses => _prefs.getStringList('windowsBypassProcesses') ?? [];
+  set windowsBypassProcesses(List<String> v) => _prefs.setStringList('windowsBypassProcesses', v);
 }

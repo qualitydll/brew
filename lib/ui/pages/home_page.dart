@@ -71,8 +71,8 @@ class _Hero extends StatelessWidget {
           : ('Не защищено', 'Нажмите, чтобы подключиться'),
     ConnStatus.connecting => (
         'Подключение…',
-        state.settings.sniSpoofing
-            ? 'Запускаем ядро mihomo · Включение SNIS'
+        state.settings.wls
+            ? 'Запускаем ядро mihomo · Включение WLS'
             : 'Запускаем ядро mihomo',
       ),
     ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
@@ -123,10 +123,10 @@ class _Hero extends StatelessWidget {
                   style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
         ),
-        if (state.isConnected && state.settings.sniSpoofing)
+        if (state.isConnected && state.settings.wls)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: _SniActiveBadge(),
+            child: _WlsActiveBadge(),
           ),
         const SizedBox(height: 28),
         SegmentedButton<String>(
@@ -720,8 +720,8 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-class _SniActiveBadge extends StatelessWidget {
-  const _SniActiveBadge();
+class _WlsActiveBadge extends StatelessWidget {
+  const _WlsActiveBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -742,7 +742,7 @@ class _SniActiveBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            'SNI Spoofing активен',
+            'WLS активен',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: scheme.onPrimaryContainer,
               fontWeight: FontWeight.w600,

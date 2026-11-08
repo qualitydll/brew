@@ -16,7 +16,8 @@ class CoreOptions {
     required this.allowLan,
     this.externalTun = false,
     this.userRules = const [],
-    this.sniSpoofing = false,
+    this.bypassApps = const [],
+    this.bypassProcesses = const [],
   });
 
   final int mixedPort;
@@ -27,23 +28,9 @@ class CoreOptions {
   final bool allowLan;
   final bool externalTun;
   final List<String> userRules;
-
-  /// When true, overrides the SNI field of every proxy with a domain from the
-  /// Russian mobile-internet whitelist so that the TLS ClientHello passes
-  /// the operator's allowlist check.
-  final bool sniSpoofing;
+  final List<String> bypassApps; // Android package names
+  final List<String> bypassProcesses; // Windows process names
 }
-
-/// Domains that are reliably allowed on Russian mobile networks during
-/// whitelist-mode restrictions.
-const _sniWhitelistDomains = [
-  'gosuslugi.ru',
-  'vk.com',
-  'yandex.ru',
-  'sberbank.ru',
-  'mail.ru',
-  'ok.ru',
-];
 
 const _privateRules = [
   'IP-CIDR,127.0.0.0/8,DIRECT,no-resolve',
@@ -54,6 +41,26 @@ const _privateRules = [
   'DOMAIN-SUFFIX,local,DIRECT',
   'DOMAIN-SUFFIX,lan,DIRECT',
 ];
+
+/// Generate bypass rules for Android apps and Windows processes
+List<String> _generateBypassRules(
+  List<String> bypassApps,
+  List<String> bypassProcesses,
+) {
+  final rules = <String>[];
+  
+  // Android app bypass rules (using process-name)
+  for (final app in bypassApps) {
+    rules.add('PROCESS-NAME,$app,DIRECT');
+  }
+  
+  // Windows process bypass rules
+  for (final process in bypassProcesses) {
+    rules.add('PROCESS-NAME,$process,DIRECT');
+  }
+  
+  return rules;
+}
 
 /// Builds a minimal but complete config around a list of share-link proxies.
 Map<String, dynamic> configFromProxies(List<Map<String, dynamic>> proxies) {
@@ -115,40 +122,17 @@ Map<String, dynamic> applyCoreOptions(
   cfg['secret'] = o.secret;
   cfg['unified-delay'] = true;
   cfg['tcp-concurrent'] = true;
-  // App-based routing on Windows matches on PROCESS-NAME, which only works
-  // when Mihomo actually resolves the owning process per connection. Android
-  // excludes apps at the VpnService level instead (see AndroidVpn.start), so
-  // it never needs this — and can't reliably use it from inside the app
-  // sandbox anyway.
-  final hasProcessRules = Platform.isWindows &&
-      o.userRules.any((rule) => rule.toUpperCase().startsWith('PROCESS-NAME'));
-  cfg['find-process-mode'] = hasProcessRules ? 'strict' : 'off';
+  cfg['find-process-mode'] = Platform.isAndroid ? 'strict' : 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
 
-  // SNI Spoofing: replace the servername of every proxy so the TLS
-  // ClientHello shows a whitelisted domain to the operator's DPI filter.
-  if (o.sniSpoofing) {
-    final proxies = cfg['proxies'];
-    if (proxies is List) {
-      var domainIndex = 0;
-      cfg['proxies'] = [
-        for (final proxy in proxies)
-          if (proxy is Map)
-            {
-              ...proxy,
-              'servername': _sniWhitelistDomains[
-                  domainIndex++ % _sniWhitelistDomains.length],
-            }
-          else
-            proxy,
-      ];
-    }
-  }
-
-  if (o.userRules.isNotEmpty) {
+  // Generate bypass rules for apps/processes
+  final bypassRules = _generateBypassRules(o.bypassApps, o.bypassProcesses);
+  
+  if (o.userRules.isNotEmpty || bypassRules.isNotEmpty) {
     // Mihomo uses first-match semantics, so custom rules take precedence.
     final providerRules = cfg['rules'];
     cfg['rules'] = [
+      ...bypassRules,
       ...o.userRules,
       if (providerRules is List) ...providerRules,
     ];

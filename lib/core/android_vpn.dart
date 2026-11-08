@@ -19,39 +19,18 @@ class AndroidVpn {
     await _channel.invokeMethod<bool>('prepareVpn');
   }
 
-  /// Launchable apps on the device, for the app-routing picker: each entry
-  /// has a `package` (e.g. `com.whatsapp`) and a display `label`.
-  Future<List<Map<String, String>>> listInstalledApps() async {
-    final raw = await _channel.invokeMethod<List<Object?>>(
-      'listInstalledApps',
-    );
-    return [
-      for (final entry in raw ?? const [])
-        if (entry is Map)
-          {
-            'package': entry['package']?.toString() ?? '',
-            'label': entry['label']?.toString() ?? '',
-          },
-    ].where((app) => app['package']!.isNotEmpty).toList();
-  }
-
   Future<String?> validateConfig(String path) => awaitWithTimeout(
     _channel.invokeMethod<String>('validateConfig', {'path': path}),
     timeout: validationTimeout,
     description: 'Mihomo config validation',
   );
 
-  Future<void> start(
-    String configPath, {
-    required String sessionId,
-    List<String> disallowedPackages = const [],
-  }) async {
+  Future<void> start(String configPath, {required String sessionId}) async {
     try {
       await awaitWithTimeout(
         _channel.invokeMethod<void>('startVpn', {
           'configPath': configPath,
           'sessionId': sessionId,
-          'disallowedPackages': disallowedPackages,
         }),
         timeout: startTimeout,
         description: 'Mihomo VPN service start',
