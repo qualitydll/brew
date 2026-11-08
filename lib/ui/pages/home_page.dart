@@ -71,7 +71,9 @@ class _Hero extends StatelessWidget {
           : ('Не защищено', 'Нажмите, чтобы подключиться'),
     ConnStatus.connecting => (
         'Подключение…',
-        'Запускаем ядро mihomo',
+        state.settings.wls
+            ? 'Запускаем ядро mihomo · Включение WLS'
+            : 'Запускаем ядро mihomo',
       ),
     ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
     ConnStatus.connected => ('Защищено', ''),
@@ -121,6 +123,11 @@ class _Hero extends StatelessWidget {
                   style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
         ),
+        if (state.isConnected && state.settings.wls)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: _WlsActiveBadge(),
+          ),
         const SizedBox(height: 28),
         SegmentedButton<String>(
           segments: const [
@@ -713,3 +720,36 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
+class _WlsActiveBadge extends StatelessWidget {
+  const _WlsActiveBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.shield_rounded,
+            size: 14,
+            color: scheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'WLS активен',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

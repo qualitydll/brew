@@ -197,4 +197,82 @@ rules:
   });
 
 
+  test('WLS is disabled by default and preserves original SNI', () {
+    const original = <String, dynamic>{
+      'proxies': [
+        {'name': 'TLS server', 'type': 'trojan', 'server': 'node.example', 'servername': 'real.example'},
+      ],
+    };
+    final config = applyCoreOptions(
+      original,
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+      ),
+    );
+
+    expect(config['proxies'], original['proxies']);
+    expect(
+      ((config['proxies'] as List).single as Map)['servername'],
+      'real.example',
+    );
+  });
+
+  test('WLS changes only supported non-Reality TLS proxy fields', () {
+    final config = applyCoreOptions(
+      {
+        'proxies': [
+          {
+            'name': 'Reality node',
+            'type': 'vless',
+            'server': 'node.example',
+            'tls': true,
+            'servername': 'reality.example',
+            'reality-opts': {'public-key': 'key', 'short-id': 'abcd'},
+          },
+          {
+            'name': 'TLS node',
+            'type': 'vless',
+            'server': 'tls.example',
+            'tls': true,
+            'servername': 'original.example',
+          },
+          {
+            'name': 'Plain node',
+            'type': 'ss',
+            'server': 'plain.example',
+            'cipher': 'aes-128-gcm',
+            'password': 'secret',
+          },
+        ],
+      },
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+        wls: true,
+      ),
+    );
+
+    final proxies = config['proxies'] as List;
+    final reality = proxies[0] as Map;
+    final tls = proxies[1] as Map;
+    final plain = proxies[2] as Map;
+
+    expect(reality['servername'], 'reality.example');
+    expect(tls['servername'], isA<String>());
+    expect((tls['servername'] as String).contains('.'), isTrue);
+    expect(tls['client-fingerprint'], 'chrome');
+    expect(plain.containsKey('servername'), isFalse);
+    expect(config.containsKey('tls'), isFalse);
+    expect(config.containsKey('sniffer'), isFalse);
+  });
+
 }

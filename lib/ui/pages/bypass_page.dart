@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
@@ -9,14 +11,14 @@ class BypassPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    final isAndroid = Platform.isAndroid;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const PageHeader(
           title: 'Обход VPN',
-          subtitle: 'Выберите приложения или процессы для прямого доступа',
+          subtitle: 'Выберите приложения для прямого доступа без VPN',
         ),
         Expanded(
           child: ListView(
@@ -32,13 +34,156 @@ class BypassPage extends StatelessWidget {
   }
 }
 
-class _AndroidBypassSection extends StatelessWidget {
+class _AndroidBypassSection extends StatefulWidget {
   const _AndroidBypassSection({required this.state});
   final AppState state;
 
   @override
+  State<_AndroidBypassSection> createState() => _AndroidBypassSectionState();
+}
+
+class _AndroidBypassSectionState extends State<_AndroidBypassSection> {
+  final List<String> _selectedApps = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedApps.addAll(widget.state.settings.androidBypassApps);
+  }
+
+  Future<void> _loadApps() async {
+    setState(() => _isLoading = true);
+    // Simulate loading apps - in real implementation this would use
+    // platform channel to query Android PackageManager
+    await Future.delayed(const Duration(milliseconds: 500));
+    setState(() => _isLoading = false);
+    
+    // Show app selector dialog
+    if (!mounted) return;
+    _showAppSelector();
+  }
+
+  void _showAppSelector() {
+    final commonApps = [
+      'com.android.chrome',
+      'com.whatsapp',
+      'com.instagram.android',
+      'com.facebook.katana',
+      'com.twitter.android',
+      'com.discord',
+      'com.tencent.mm',
+      'com.spotify.music',
+      'com.netflix.mediaclient',
+      'com.youtube',
+      'com.google.android.youtube',
+      'com.vkontakte.android',
+      'com.google.android.gm',
+      'com.slack',
+      'com.microsoft.teams',
+      'com.skype.raider',
+      'com.zoom.us',
+      'ru.yandex.mail',
+      'ru.yandex.disk',
+      'ru.yandex.taxi',
+      'ru.yandex.metro',
+      'ru.yandex.music',
+      'ru.yandex.browser',
+      'com.sberbankmobile',
+      'ru.tinkoff.mobile',
+      'ru.tcsbank.mb',
+      'com.vkontakte.bdev',
+      'ru.ozon.app.android',
+      'com.wildberries.ru',
+      'com.avito.android',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Выберите приложения'),
+        content: SizedBox(
+          width: 500,
+          height: 400,
+          child: ListView.builder(
+            itemCount: commonApps.length,
+            itemBuilder: (context, index) {
+              final app = commonApps[index];
+              final isSelected = _selectedApps.contains(app);
+              return CheckboxListTile(
+                title: Text(_getAppName(app)),
+                subtitle: Text(app, style: const TextStyle(fontSize: 11)),
+                value: isSelected,
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selectedApps.add(app);
+                    } else {
+                      _selectedApps.remove(app);
+                    }
+                  });
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () {
+              widget.state.settings.androidBypassApps = List.from(_selectedApps);
+              widget.state.notifyListeners();
+              Navigator.pop(context);
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getAppName(String packageName) {
+    final nameMap = {
+      'com.android.chrome': 'Chrome',
+      'com.whatsapp': 'WhatsApp',
+      'com.instagram.android': 'Instagram',
+      'com.facebook.katana': 'Facebook',
+      'com.twitter.android': 'Twitter',
+      'com.discord': 'Discord',
+      'com.tencent.mm': 'WeChat',
+      'com.spotify.music': 'Spotify',
+      'com.netflix.mediaclient': 'Netflix',
+      'com.youtube': 'YouTube',
+      'com.google.android.youtube': 'YouTube',
+      'com.vkontakte.android': 'VK',
+      'com.google.android.gm': 'Gmail',
+      'com.slack': 'Slack',
+      'com.microsoft.teams': 'Microsoft Teams',
+      'com.skype.raider': 'Skype',
+      'com.zoom.us': 'Zoom',
+      'ru.yandex.mail': 'Yandex Mail',
+      'ru.yandex.disk': 'Yandex Disk',
+      'ru.yandex.taxi': 'Yandex Taxi',
+      'ru.yandex.metro': 'Yandex Metro',
+      'ru.yandex.music': 'Yandex Music',
+      'ru.yandex.browser': 'Yandex Browser',
+      'com.sberbankmobile': 'СберБанк',
+      'ru.tinkoff.mobile': 'Тинькофф',
+      'ru.tcsbank.mb': 'Т-Банк',
+      'com.vkontakte.bdev': 'VK Клипы',
+      'ru.ozon.app.android': 'Ozon',
+      'com.wildberries.ru': 'Wildberries',
+      'com.avito.android': 'Авито',
+    };
+    return nameMap[packageName] ?? packageName;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bypassApps = state.settings.androidBypassApps;
+    final bypassApps = widget.state.settings.androidBypassApps;
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,10 +198,10 @@ class _AndroidBypassSection extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              IconButton(
+              FilledButton.icon(
+                onPressed: _loadApps,
                 icon: const Icon(Icons.add_rounded),
-                onPressed: () => _showAppSelector(context, state),
-                tooltip: 'Добавить приложение',
+                label: const Text('Добавить'),
               ),
             ],
           ),
@@ -70,46 +215,15 @@ class _AndroidBypassSection extends StatelessWidget {
                   ListTile(
                     dense: true,
                     leading: const Icon(Icons.apps_rounded),
-                    title: Text(app),
+                    title: Text(_getAppName(app)),
+                    subtitle: Text(app, style: const TextStyle(fontSize: 11)),
                     trailing: IconButton(
                       icon: const Icon(Icons.close_rounded),
-                      onPressed: () => _removeApp(state, app),
+                      onPressed: () => _removeApp(widget.state, app),
                     ),
                   ),
               ],
             ),
-        ],
-      ),
-    );
-  }
-
-  void _showAppSelector(BuildContext context, AppState state) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Добавить приложение'),
-        content: TextField(
-          decoration: const InputDecoration(
-            labelText: 'Имя пакета (например: com.example.app)',
-            hintText: 'com.example.app',
-          ),
-          onSubmitted: (value) {
-            if (value.isNotEmpty) {
-              final apps = [...state.settings.androidBypassApps];
-              if (!apps.contains(value)) {
-                apps.add(value);
-                state.settings.androidBypassApps = apps;
-                state.notifyListeners();
-              }
-            }
-            Navigator.pop(context);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
         ],
       ),
     );
@@ -174,31 +288,62 @@ class _WindowsBypassSection extends StatelessWidget {
   }
 
   void _showProcessSelector(BuildContext context, AppState state) {
+    final commonProcesses = [
+      'chrome.exe',
+      'firefox.exe',
+      'msedge.exe',
+      'opera.exe',
+      'discord.exe',
+      'spotify.exe',
+      'telegram.exe',
+      'WhatsApp.exe',
+      'Skype.exe',
+      'Teams.exe',
+      'Zoom.exe',
+      'Steam.exe',
+      'EpicGamesLauncher.exe',
+      'Origin.exe',
+      'Uplay.exe',
+      'Battle.net.exe',
+      'vlc.exe',
+      'notepad++.exe',
+      'code.exe',
+      'explorer.exe',
+    ];
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Добавить процесс'),
-        content: TextField(
-          decoration: const InputDecoration(
-            labelText: 'Имя процесса (например: chrome.exe)',
-            hintText: 'chrome.exe',
+        title: const Text('Выберите процесс'),
+        content: SizedBox(
+          width: 500,
+          height: 400,
+          child: ListView.builder(
+            itemCount: commonProcesses.length,
+            itemBuilder: (context, index) {
+              final process = commonProcesses[index];
+              final isSelected = state.settings.windowsBypassProcesses.contains(process);
+              return CheckboxListTile(
+                title: Text(process),
+                value: isSelected,
+                onChanged: (value) {
+                  final processes = List.from(state.settings.windowsBypassProcesses);
+                  if (value == true) {
+                    processes.add(process);
+                  } else {
+                    processes.remove(process);
+                  }
+                  state.settings.windowsBypassProcesses = processes;
+                  state.notifyListeners();
+                },
+              );
+            },
           ),
-          onSubmitted: (value) {
-            if (value.isNotEmpty) {
-              final processes = [...state.settings.windowsBypassProcesses];
-              if (!processes.contains(value)) {
-                processes.add(value);
-                state.settings.windowsBypassProcesses = processes;
-                state.notifyListeners();
-              }
-            }
-            Navigator.pop(context);
-          },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+            child: const Text('Закрыть'),
           ),
         ],
       ),

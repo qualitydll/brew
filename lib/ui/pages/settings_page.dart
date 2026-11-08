@@ -7,8 +7,10 @@ import '../../core/system_proxy.dart';
 import '../../core/routing_rules.dart';
 import '../../state/app_state.dart';
 import 'experiment_lab_page.dart';
+import 'logs_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../shell.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -18,6 +20,7 @@ class SettingsPage extends StatelessWidget {
     final state = AppScope.of(context);
     final s = state.settings;
     final sections = <Widget>[
+      // Внешний вид
       _Section(
         icon: Icons.palette_rounded,
         title: 'Внешний вид',
@@ -85,6 +88,8 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      
+      // Подключение
       _Section(
         icon: Icons.router_rounded,
         title: 'Подключение',
@@ -135,70 +140,6 @@ class SettingsPage extends StatelessWidget {
             value: s.allowLan,
             onChanged: state.setAllowLan,
           ),
-        ],
-      ),
-      if (Platform.isWindows)
-        _Section(
-          icon: Icons.power_settings_new_rounded,
-          title: 'Автозапуск',
-          children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Автозапуск при входе в систему'),
-              subtitle: const Text('Автоматически запускать приложение при входе в Windows'),
-              value: s.autostart,
-              onChanged: state.setAutostart,
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Запускать свернутым'),
-              subtitle: const Text('При автозапуске приложение будет свернуто в трей'),
-              value: s.autostartMinimized,
-              onChanged: s.autostart ? state.setAutostartMinimized : null,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Протокол при автозапуске'),
-              subtitle: Text(
-                s.autostartProtocol == null
-                    ? 'Использовать последний выбранный'
-                    : s.autostartProtocol!,
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: s.autostart
-                  ? () async {
-                      final protocols = ['rule', 'global', 'direct'];
-                      final selected = await showDialog<String>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Выберите протокол'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final p in protocols)
-                                ListTile(
-                                  title: Text(
-                                    p == 'rule'
-                                        ? 'Умный режим'
-                                        : p == 'global'
-                                            ? 'Весь трафик'
-                                            : 'Напрямую',
-                                  ),
-                                  trailing: s.autostartProtocol == p
-                                      ? const Icon(Icons.check_rounded)
-                                      : null,
-                                  onTap: () => Navigator.pop(context, p),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                      if (selected != null) {
-                        await state.setAutostartProtocol(selected);
-                      }
-                    }
-                  : null,
-            ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Порт прокси'),
@@ -211,6 +152,25 @@ class SettingsPage extends StatelessWidget {
                 await state.setMixedPort(port);
               }
             },
+          ),
+        ],
+      ),
+      
+      // Маршрутизация
+      _Section(
+        icon: Icons.alt_route_rounded,
+        title: 'Маршрутизация',
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Обход VPN'),
+            subtitle: Text(
+              Platform.isAndroid
+                  ? 'Выберите приложения для прямого доступа'
+                  : 'Выберите процессы для прямого доступа',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Shell.go(context, 3),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -273,6 +233,89 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      
+      // Логи
+      _Section(
+        icon: Icons.receipt_long_rounded,
+        title: 'Логи',
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Просмотр логов'),
+            subtitle: const Text('Журнал работы ядра и приложения'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Shell.go(context, 4),
+          ),
+        ],
+      ),
+      
+      // Автозапуск (только Windows)
+      if (Platform.isWindows)
+        _Section(
+          icon: Icons.power_settings_new_rounded,
+          title: 'Автозапуск',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автозапуск при входе в систему'),
+              subtitle: const Text('Автоматически запускать приложение при входе в Windows'),
+              value: s.autostart,
+              onChanged: state.setAutostart,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Запускать свернутым'),
+              subtitle: const Text('При автозапуске приложение будет свернуто в трей'),
+              value: s.autostartMinimized,
+              onChanged: s.autostart ? state.setAutostartMinimized : null,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Протокол при автозапуске'),
+              subtitle: Text(
+                s.autostartProtocol == null
+                    ? 'Использовать последний выбранный'
+                    : s.autostartProtocol!,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: s.autostart
+                  ? () async {
+                      final protocols = ['rule', 'global', 'direct'];
+                      final selected = await showDialog<String>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Выберите протокол'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final p in protocols)
+                                ListTile(
+                                  title: Text(
+                                    p == 'rule'
+                                        ? 'Умный режим'
+                                        : p == 'global'
+                                            ? 'Весь трафик'
+                                            : 'Напрямую',
+                                  ),
+                                  trailing: s.autostartProtocol == p
+                                      ? const Icon(Icons.check_rounded)
+                                      : null,
+                                  onTap: () => Navigator.pop(context, p),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (selected != null) {
+                        await state.setAutostartProtocol(selected);
+                      }
+                    }
+                  : null,
+            ),
+          ],
+        ),
+      
+      // Ядро
       _Section(
         icon: Icons.memory_rounded,
         title: 'Ядро',
@@ -315,6 +358,8 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      
+      // Эксперименты
       _Section(
         icon: Icons.science_rounded,
         title: 'Эксперименты',
@@ -338,12 +383,14 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      
+      // О программе
       const _Section(
         icon: Icons.info_rounded,
         title: 'О программе',
         children: [
           Text(
-            'brew 0.1.0 — VPN-клиент на базе mihomo с дизайном Material You.',
+            'brew 0.1.2 — VPN-клиент на базе mihomo с дизайном Material You.',
           ),
         ],
       ),
@@ -435,7 +482,7 @@ class _DomainRuleDialogState extends State<_DomainRuleDialog> {
               decoration: const InputDecoration(
                 labelText: 'Домен',
                 hintText: 'example.com',
-                helperText: 'Без https://, пути и параметров',
+                helperText: 'Без https://, путей и параметров',
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (_) => _save(),
@@ -613,9 +660,8 @@ class _Row extends StatelessWidget {
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 24,
-      runSpacing: 8,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleSmall),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
         child,
       ],
     );
@@ -623,11 +669,7 @@ class _Row extends StatelessWidget {
 }
 
 class _Swatch extends StatelessWidget {
-  const _Swatch({
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
+  const _Swatch({this.color, required this.selected, required this.onTap});
   final Color? color;
   final bool selected;
   final VoidCallback onTap;
@@ -635,71 +677,23 @@ class _Swatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: color == null ? 'Цвет системы' : '',
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutBack,
-            width: 48,
-            height: 48,
-            decoration: ShapeDecoration(
-              color: color,
-              gradient: color == null
-                  ? const SweepGradient(
-                      colors: [
-                        Color(0xFFEF5350),
-                        Color(0xFFFFCA28),
-                        Color(0xFF66BB6A),
-                        Color(0xFF42A5F5),
-                        Color(0xFFAB47BC),
-                        Color(0xFFEF5350),
-                      ],
-                    )
-                  : null,
-              shape: selected
-                  ? const StarBorder(
-                      points: 8,
-                      innerRadiusRatio: 0.84,
-                      pointRounding: 0.6,
-                      valleyRounding: 0.4,
-                    )
-                  : RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-              shadows: selected
-                  ? [
-                      BoxShadow(
-                        color: (color ?? scheme.primary).withValues(alpha: 0.4),
-                        blurRadius: 14,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: selected
-                  ? const Icon(
-                      Icons.check_rounded,
-                      key: ValueKey(1),
-                      color: Colors.white,
-                    )
-                  : (color == null
-                        ? const Icon(
-                            Icons.auto_awesome_rounded,
-                            key: ValueKey(2),
-                            color: Colors.white,
-                            size: 20,
-                          )
-                        : const SizedBox.shrink()),
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color ?? scheme.surfaceVariant,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? scheme.primary : Colors.transparent,
+            width: 2,
           ),
         ),
+        child: color == null
+            ? Icon(Icons.brightness_auto_rounded, size: 20, color: scheme.onSurfaceVariant)
+            : null,
       ),
     );
   }
 }
-

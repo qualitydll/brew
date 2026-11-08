@@ -8,7 +8,6 @@ import '../state/app_state.dart';
 import '../state/models.dart';
 import 'pages/bypass_page.dart';
 import 'pages/home_page.dart';
-import 'pages/logs_page.dart';
 import 'pages/profiles_page.dart';
 import 'pages/servers_page.dart';
 import 'pages/settings_page.dart';
@@ -36,7 +35,6 @@ const _dests = [
   _Dest('Прокси', Icons.hub_outlined, Icons.hub_rounded),
   _Dest('Профили', Icons.layers_outlined, Icons.layers_rounded),
   _Dest('Обход', Icons.alt_route_outlined, Icons.alt_route_rounded),
-  _Dest('Журнал', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
   _Dest('Настр.', Icons.tune_outlined, Icons.tune_rounded),
 ];
 
@@ -57,7 +55,6 @@ class _ShellState extends State<Shell> {
     1 => const ServersPage(),
     2 => const ProfilesPage(),
     3 => const BypassPage(),
-    4 => const LogsPage(),
     _ => const SettingsPage(),
   };
 

@@ -7,7 +7,7 @@ import zipfile
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets" / "images" / "brew_logo.png"
+SOURCE = ROOT / "brewicon.png"
 ICON_ARCHIVE = ROOT / "Brew_Icons_Windows_Android.zip"
 ASSET_DIR = ROOT / "assets" / "images"
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
