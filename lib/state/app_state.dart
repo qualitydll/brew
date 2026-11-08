@@ -156,6 +156,16 @@ class AppState extends ChangeNotifier {
     return routingActionsFor(parseSubscription(content));
   }
 
+  void setAndroidBypassApps(List<String> apps) {
+    settings.androidBypassApps = List<String>.of(apps);
+    notifyListeners();
+  }
+
+  void setWindowsBypassProcesses(List<String> processes) {
+    settings.windowsBypassProcesses = List<String>.of(processes);
+    notifyListeners();
+  }
+
   Future<void> addDomainRule(String rule) async {
     if (!settings.domainRules.contains(rule)) {
       settings.domainRules = [...settings.domainRules, rule];
@@ -617,7 +627,6 @@ class AppState extends ChangeNotifier {
       error = e.toString();
       logs.add(LogEntry('error', error!));
     } finally {
-      await _stopHylClients();
       _afterStopped();
     }
   }
@@ -659,7 +668,6 @@ class AppState extends ChangeNotifier {
       } else {
         await core.stop();
       }
-      await _stopHylClients();
     }
   }
 
