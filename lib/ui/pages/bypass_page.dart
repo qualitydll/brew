@@ -134,8 +134,7 @@ class _AndroidBypassSectionState extends State<_AndroidBypassSection> {
           ),
           FilledButton(
             onPressed: () {
-              widget.state.settings.androidBypassApps = List.from(_selectedApps);
-              widget.state.notifyListeners();
+              widget.state.setAndroidBypassApps(_selectedApps);
               Navigator.pop(context);
             },
             child: const Text('Сохранить'),
@@ -199,8 +198,10 @@ class _AndroidBypassSectionState extends State<_AndroidBypassSection> {
                 ),
               ),
               FilledButton.icon(
-                onPressed: _loadApps,
-                icon: const Icon(Icons.add_rounded),
+                onPressed: _isLoading ? null : _loadApps,
+                icon: _isLoading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.add_rounded),
                 label: const Text('Добавить'),
               ),
             ],
@@ -231,8 +232,7 @@ class _AndroidBypassSectionState extends State<_AndroidBypassSection> {
 
   void _removeApp(AppState state, String app) {
     final apps = state.settings.androidBypassApps.where((a) => a != app).toList();
-    state.settings.androidBypassApps = apps;
-    state.notifyListeners();
+    state.setAndroidBypassApps(apps);
   }
 }
 
@@ -327,14 +327,13 @@ class _WindowsBypassSection extends StatelessWidget {
                 title: Text(process),
                 value: isSelected,
                 onChanged: (value) {
-                  final processes = List.from(state.settings.windowsBypassProcesses);
+                  final processes = List<String>.of(state.settings.windowsBypassProcesses);
                   if (value == true) {
                     processes.add(process);
                   } else {
                     processes.remove(process);
                   }
-                  state.settings.windowsBypassProcesses = processes;
-                  state.notifyListeners();
+                  state.setWindowsBypassProcesses(processes);
                 },
               );
             },
@@ -352,7 +351,6 @@ class _WindowsBypassSection extends StatelessWidget {
 
   void _removeProcess(AppState state, String process) {
     final processes = state.settings.windowsBypassProcesses.where((p) => p != process).toList();
-    state.settings.windowsBypassProcesses = processes;
-    state.notifyListeners();
+    state.setWindowsBypassProcesses(processes);
   }
 }
