@@ -566,3 +566,140 @@ Future<String?> _promptMultiline(
   );
 }
 
+class _Section extends StatelessWidget {
+  const _Section({
+    required this.icon,
+    required this.title,
+    required this.children,
+  });
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: scheme.primary),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 24,
+      runSpacing: 8,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleSmall),
+        child,
+      ],
+    );
+  }
+}
+
+class _Swatch extends StatelessWidget {
+  const _Swatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+  final Color? color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: color == null ? 'Цвет системы' : '',
+      child: GestureDetector(
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutBack,
+            width: 48,
+            height: 48,
+            decoration: ShapeDecoration(
+              color: color,
+              gradient: color == null
+                  ? const SweepGradient(
+                      colors: [
+                        Color(0xFFEF5350),
+                        Color(0xFFFFCA28),
+                        Color(0xFF66BB6A),
+                        Color(0xFF42A5F5),
+                        Color(0xFFAB47BC),
+                        Color(0xFFEF5350),
+                      ],
+                    )
+                  : null,
+              shape: selected
+                  ? const StarBorder(
+                      points: 8,
+                      innerRadiusRatio: 0.84,
+                      pointRounding: 0.6,
+                      valleyRounding: 0.4,
+                    )
+                  : RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+              shadows: selected
+                  ? [
+                      BoxShadow(
+                        color: (color ?? scheme.primary).withValues(alpha: 0.4),
+                        blurRadius: 14,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: selected
+                  ? const Icon(
+                      Icons.check_rounded,
+                      key: ValueKey(1),
+                      color: Colors.white,
+                    )
+                  : (color == null
+                        ? const Icon(
+                            Icons.auto_awesome_rounded,
+                            key: ValueKey(2),
+                            color: Colors.white,
+                            size: 20,
+                          )
+                        : const SizedBox.shrink()),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
