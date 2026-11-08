@@ -617,7 +617,6 @@ class AppState extends ChangeNotifier {
       error = e.toString();
       logs.add(LogEntry('error', error!));
     } finally {
-      await _stopHylClients();
       _afterStopped();
     }
   }
@@ -659,7 +658,6 @@ class AppState extends ChangeNotifier {
       } else {
         await core.stop();
       }
-      await _stopHylClients();
     }
   }
 
