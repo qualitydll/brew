@@ -48,7 +48,34 @@ jobs:
           $version = "v1.19.32"
           $archive = Join-Path $env:RUNNER_TEMP "mihomo-windows-amd64-$version.zip"
           $url = "https://github.com/MetaCubeX/mihomo/releases/download/$version/mihomo-windows-amd64-$version.zip"
-          Invoke-WebRequest -Uri $url -OutFile $archive
+          $downloaded = $false
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            try {
+              if (Test-Path $archive) {
+                Remove-Item $archive -Force
+              }
+              Write-Host "Downloading Mihomo $version (attempt $attempt/5)..."
+              Invoke-WebRequest -Uri $url -OutFile $archive -MaximumRedirection 10 -TimeoutSec 120
+              $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
+              $zip.Dispose()
+              $downloaded = $true
+              break
+            }
+            catch {
+              if (Test-Path $archive) {
+                Remove-Item $archive -Force
+              }
+              if ($attempt -eq 5) {
+                throw "Unable to download a valid Mihomo archive after 5 attempts. Last error: $($_.Exception.Message)"
+              }
+              $delay = [Math]::Min(60, 10 * $attempt)
+              Write-Warning "Mihomo download failed: $($_.Exception.Message). Retrying in $delay seconds..."
+              Start-Sleep -Seconds $delay
+            }
+          }
+          if (-not $downloaded) {
+            throw "Mihomo archive download did not complete."
+          }
           $extract = Join-Path $env:RUNNER_TEMP "mihomo-core"
           Expand-Archive -Path $archive -DestinationPath $extract -Force
           $binary = Get-ChildItem -Path $extract -Filter "mihomo*.exe" -File -Recurse | Select-Object -First 1
