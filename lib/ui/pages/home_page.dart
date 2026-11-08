@@ -71,9 +71,7 @@ class _Hero extends StatelessWidget {
           : ('Не защищено', 'Нажмите, чтобы подключиться'),
     ConnStatus.connecting => (
         'Подключение…',
-        state.settings.wls
-            ? 'Запускаем ядро mihomo · Включение WLS'
-            : 'Запускаем ядро mihomo',
+        'Запускаем ядро mihomo',
       ),
     ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
     ConnStatus.connected => ('Защищено', ''),
@@ -123,11 +121,6 @@ class _Hero extends StatelessWidget {
                   style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
         ),
-        if (state.isConnected && state.settings.wls)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: _WlsActiveBadge(),
-          ),
         const SizedBox(height: 28),
         SegmentedButton<String>(
           segments: const [
