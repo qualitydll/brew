@@ -13,9 +13,6 @@ String normalizeDomainRule(
   required String action,
   required List<String> allowedActions,
 }) {
-  if (!allowedActions.contains(action)) {
-    throw ArgumentError.value(action, 'action');
-  }
   final trimmed = input.trim().toLowerCase();
   final isZoneShortcut = trimmed.startsWith('.');
   final domain = (isZoneShortcut ? trimmed.substring(1) : trimmed)
@@ -37,6 +34,9 @@ String normalizeDomainRule(
           : 'Введите домен без схемы и пути, например example.com, '
                 'или зону вида .ru, чтобы обойти её целиком.',
     );
+  }
+  if (!allowedActions.contains(action)) {
+    throw ArgumentError.value(action, 'action');
   }
   // A bare zone only makes sense as a suffix match.
   final useSuffix = includeSubdomains || isZoneShortcut;
@@ -76,10 +76,10 @@ String normalizeAppRule(
   required String action,
   required List<String> allowedActions,
 }) {
+  final name = normalizeProcessName(input);
   if (!allowedActions.contains(action)) {
     throw ArgumentError.value(action, 'action');
   }
-  final name = normalizeProcessName(input);
   return 'PROCESS-NAME,$name,$action';
 }
 
