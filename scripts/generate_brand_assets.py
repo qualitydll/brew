@@ -7,9 +7,11 @@ import zipfile
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "brewicon.png"
 ICON_ARCHIVE = ROOT / "Brew_Icons_Windows_Android.zip"
 ASSET_DIR = ROOT / "assets" / "images"
+# Prefer the original source file when present, but the optimized logo is
+# already tracked in the repository and is a valid fallback for clean CI runs.
+SOURCE_CANDIDATES = (ROOT / "brewicon.png", ASSET_DIR / "brew_logo.png")
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
 WINDOWS_ICON = ROOT / "windows" / "runner" / "resources" / "app_icon.ico"
 ANDROID_SIZES = {
@@ -50,8 +52,8 @@ def _score(name: str, size: tuple[int, int], target: int | None = None) -> tuple
 
 def load_archive():
     images = []
-    if not ICON_ARCHIVE.is_file():
-        print("Brand icon ZIP not present; using the repository source logo.")
+    if not ICON_ARCHIVE.is_file() or ICON_ARCHIVE.stat().st_size == 0:
+        print("Brand icon ZIP is missing or empty; using the repository source logo.")
         return images
     with zipfile.ZipFile(ICON_ARCHIVE) as archive:
         for info in archive.infolist():
@@ -95,11 +97,14 @@ def exact_size_source(images: list[tuple], size: int) -> Image.Image | None:
 
 
 def main() -> None:
-    if not SOURCE.is_file():
-        raise FileNotFoundError(f"Brand image not found: {SOURCE}")
+    source_path = next((path for path in SOURCE_CANDIDATES if path.is_file()), None)
+    if source_path is None:
+        expected = ", ".join(str(path) for path in SOURCE_CANDIDATES)
+        raise FileNotFoundError(f"No brand image found. Checked: {expected}")
 
+    print(f"Using repository brand source: {source_path.relative_to(ROOT)}")
     images = load_archive()
-    with Image.open(SOURCE) as original:
+    with Image.open(source_path) as original:
         original.load()
         source = best_source(images, original)
 
